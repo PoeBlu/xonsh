@@ -36,7 +36,7 @@ if len(sys.argv) == 3:
     if sys.argv[1] == '-nocode':
         yparse.emit_code = 0
     else:
-        print("Unknown option '%s'" % sys.argv[1])
+        print(f"Unknown option '{sys.argv[1]}'")
         raise SystemExit
     filename = sys.argv[2]
 else:

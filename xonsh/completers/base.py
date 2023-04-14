@@ -24,8 +24,5 @@ def complete_base(prefix, line, start, end, ctx):
         paths = complete_path(prefix, line, start, end, ctx, False)
         return (out | paths[0]), paths[1]
     elif prefix == line:
-        if python_comps_len is None:
-            return out
-        else:
-            return out, python_comps_len
+        return out if python_comps_len is None else (out, python_comps_len)
     return set()

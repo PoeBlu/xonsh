@@ -26,23 +26,20 @@ class ChainDB(ChainMap):
 
     def __getitem__(self, key):
         res = None
-        results = []
-        # Try to get all the data from all the mappings
-        for mapping in self.maps:
-            results.append(mapping.get(key, ChainDBDefault))
+        results = [mapping.get(key, ChainDBDefault) for mapping in self.maps]
         # if all the results are mapping create a ChainDB
-        if all([isinstance(result, MutableMapping) for result in results]):
+        if all(isinstance(result, MutableMapping) for result in results):
             for result in results:
                 if res is None:
                     res = ChainDB(result)
                 else:
                     res.maps.append(result)
         elif all(
-            [isinstance(result, (MutableSequence, MutableSet)) for result in results]
+            isinstance(result, (MutableSequence, MutableSet)) for result in results
         ):
             results_chain = itertools.chain(*results)
             # if all reults have the same type, cast into that type
-            if all([isinstance(result, type(results[0])) for result in results]):
+            if all(isinstance(result, type(results[0])) for result in results):
                 return type(results[0])(results_chain)
             else:
                 return list(results_chain)
@@ -50,7 +47,7 @@ class ChainDB(ChainMap):
             for result in reversed(results):
                 if result is not ChainDBDefault:
                     return result
-            raise KeyError("{} is none of the current mappings".format(key))
+            raise KeyError(f"{key} is none of the current mappings")
         return res
 
     def __setitem__(self, key, value):
@@ -65,9 +62,6 @@ class ChainDB(ChainMap):
 
 def _convert_to_dict(cm):
     if isinstance(cm, (ChainMap, ChainDB)):
-        r = {}
-        for k, v in cm.items():
-            r[k] = _convert_to_dict(v)
-        return r
+        return {k: _convert_to_dict(v) for k, v in cm.items()}
     else:
         return cm

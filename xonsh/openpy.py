@@ -36,10 +36,7 @@ def source_to_unicode(txt, errors="replace", skip_encoding_cookie=True):
     """
     if isinstance(txt, str):
         return txt
-    if isinstance(txt, bytes):
-        buf = io.BytesIO(txt)
-    else:
-        buf = txt
+    buf = io.BytesIO(txt) if isinstance(txt, bytes) else txt
     try:
         encoding, _ = detect_encoding(buf.readline)
     except SyntaxError:
@@ -67,8 +64,7 @@ def strip_encoding_cookie(filelike):
             yield second
     except StopIteration:
         return
-    for line in it:
-        yield line
+    yield from it
 
 
 def read_py_file(filename, skip_encoding_cookie=True):
@@ -88,10 +84,7 @@ def read_py_file(filename, skip_encoding_cookie=True):
     A unicode string containing the contents of the file.
     """
     with tokopen(filename) as f:  # the open function defined in this module.
-        if skip_encoding_cookie:
-            return "".join(strip_encoding_cookie(f))
-        else:
-            return f.read()
+        return "".join(strip_encoding_cookie(f)) if skip_encoding_cookie else f.read()
 
 
 def read_py_url(url, errors="replace", skip_encoding_cookie=True):

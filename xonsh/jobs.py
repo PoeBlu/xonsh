@@ -62,7 +62,7 @@ else:
                 except Exception:
                     pass
         else:
-            os.killpg(job["pgrp"], signal)
+            os.killpg(pgrp, signal)
 
 
 if ON_WINDOWS:
@@ -142,15 +142,14 @@ else:
                 mask |= 1 << sig
             oldmask = ctypes.c_ulong()
             mask = ctypes.c_ulong(mask)
-            result = LIBC.pthread_sigmask(
+            if result := LIBC.pthread_sigmask(
                 how, ctypes.byref(mask), ctypes.byref(oldmask)
-            )
-            if result:
+            ):
                 raise OSError(result, "Sigmask error.")
 
             return {
                 sig
-                for sig in getattr(signal, "Signals", range(0, 65))
+                for sig in getattr(signal, "Signals", range(65))
                 if (oldmask.value >> sig) & 1
             }
 
@@ -172,15 +171,10 @@ else:
             # see issue #2288
             return False
         except OSError as e:
-            if e.errno == 22:  # [Errno 22] Invalid argument
+            if e.errno in [22, 25]:
                 # there are cases that all the processes of pgid have
                 # finished, then we don't need to do anything here, see
                 # issue #2220
-                return False
-            elif e.errno == 25:  # [Errno 25] Inappropriate ioctl for device
-                # There are also cases where we are not connected to a
-                # real TTY, even though we may be run in interactive
-                # mode. See issue #2267 for an example with emacs
                 return False
             else:
                 raise
@@ -277,7 +271,7 @@ def print_one_job(num, outfile=sys.stdout):
     cmd = " ".join(cmd)
     pid = job["pids"][-1]
     bg = " &" if job["bg"] else ""
-    print("[{}]{} {}: {}{} ({})".format(num, pos, status, cmd, bg, pid), file=outfile)
+    print(f"[{num}]{pos} {status}: {cmd}{bg} ({pid})", file=outfile)
 
 
 def get_next_job_number():
@@ -337,7 +331,7 @@ def clean_jobs():
                     # The Ctrl+D binding for prompt_toolkit already inserts a
                     # newline
                     print()
-                print("xonsh: {}".format(msg), file=sys.stderr)
+                print(f"xonsh: {msg}", file=sys.stderr)
                 print("-" * 5, file=sys.stderr)
                 jobs([], stdout=sys.stderr)
                 print("-" * 5, file=sys.stderr)
@@ -393,12 +387,12 @@ def resume_job(args, wording):
             else:
                 tid = int(args[0])
         except (ValueError, IndexError):
-            return "", "Invalid job: {}\n".format(args[0])
+            return "", f"Invalid job: {args[0]}\n"
 
         if tid not in builtins.__xonsh__.all_jobs:
-            return "", "Invalid job: {}\n".format(args[0])
+            return "", f"Invalid job: {args[0]}\n"
     else:
-        return "", "{} expects 0 or 1 arguments, not {}\n".format(wording, len(args))
+        return "", f"{wording} expects 0 or 1 arguments, not {len(args)}\n"
 
     # Put this one on top of the queue
     tasks.remove(tid)
@@ -432,9 +426,8 @@ def bg(args, stdin=None):
     single number is given as an argument, resume that job in the background.
     """
     res = resume_job(args, wording="bg")
-    if res is None:
-        curtask = get_task(tasks[0])
-        curtask["bg"] = True
-        _continue(curtask)
-    else:
+    if res is not None:
         return res
+    curtask = get_task(tasks[0])
+    curtask["bg"] = True
+    _continue(curtask)

@@ -69,20 +69,18 @@ class AbstractEvent(collections.abc.MutableSet, abc.ABC):
         """
         #  Using Python's "private" munging to minimize hypothetical collisions
         handler.__validator = None
-        if debug_level():
-            if not has_kwargs(handler):
-                raise ValueError("Event handlers need a **kwargs for future proofing")
+        if debug_level() and not has_kwargs(handler):
+            raise ValueError("Event handlers need a **kwargs for future proofing")
         self.add(handler)
 
         def validator(vfunc):
             """
             Adds a validator function to a handler to limit when it is considered.
             """
-            if debug_level():
-                if not has_kwargs(handler):
-                    raise ValueError(
-                        "Event validators need a **kwargs for future proofing"
-                    )
+            if debug_level() and not has_kwargs(handler):
+                raise ValueError(
+                    "Event validators need a **kwargs for future proofing"
+                )
             handler.__validator = vfunc
 
         handler.validator = validator
@@ -292,7 +290,7 @@ class EventManager:
             {
                 "__doc__": doc,
                 "__module__": "xonsh.events",
-                "__qualname__": "events." + name,
+                "__qualname__": f"events.{name}",
             },
         )()
 

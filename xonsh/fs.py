@@ -53,16 +53,12 @@ except ImportError:
                 )
 
         raise TypeError(
-            "expected str, bytes or os.PathLike object, not " + path_type.__name__
+            f"expected str, bytes or os.PathLike object, not {path_type.__name__}"
         )
 
     def _fscodec():
         encoding = sys.getfilesystemencoding()
-        if encoding == "mbcs":
-            errors = "strict"
-        else:
-            errors = "surrogateescape"
-
+        errors = "strict" if encoding == "mbcs" else "surrogateescape"
         def fsencode(filename):
             """Encode filename (an os.PathLike, bytes, or str) to the filesystem
             encoding with 'surrogateescape' error handler, return bytes unchanged.

@@ -73,7 +73,7 @@ def test_nodedent(ctx):
 
     mock = MagicMock(return_value=True)
     with patch("xonsh.ptk2.key_bindings.can_compile", mock):
-        document = Document(ctx.indent + "pass")
+        document = Document(f"{ctx.indent}pass")
         ctx.buffer.set_document(document)
         ctx.cr(ctx.buffer, ctx.cli)
         assert ctx.accept.mock_calls is not None

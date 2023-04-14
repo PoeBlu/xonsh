@@ -2481,34 +2481,34 @@ def test_redirect_abspath(case):
 
 @pytest.mark.parametrize("case", ["", "o", "out", "1"])
 def test_redirect_output(case):
-    assert check_xonsh_ast({}, '$[echo "test" {}> test.txt]'.format(case), False)
+    assert check_xonsh_ast({}, f'$[echo "test" {case}> test.txt]', False)
     assert check_xonsh_ast(
-        {}, '$[< input.txt echo "test" {}> test.txt]'.format(case), False
+        {}, f'$[< input.txt echo "test" {case}> test.txt]', False
     )
     assert check_xonsh_ast(
-        {}, '$[echo "test" {}> test.txt < input.txt]'.format(case), False
+        {}, f'$[echo "test" {case}> test.txt < input.txt]', False
     )
 
 
 @pytest.mark.parametrize("case", ["e", "err", "2"])
 def test_redirect_error(case):
-    assert check_xonsh_ast({}, '$[echo "test" {}> test.txt]'.format(case), False)
+    assert check_xonsh_ast({}, f'$[echo "test" {case}> test.txt]', False)
     assert check_xonsh_ast(
-        {}, '$[< input.txt echo "test" {}> test.txt]'.format(case), False
+        {}, f'$[< input.txt echo "test" {case}> test.txt]', False
     )
     assert check_xonsh_ast(
-        {}, '$[echo "test" {}> test.txt < input.txt]'.format(case), False
+        {}, f'$[echo "test" {case}> test.txt < input.txt]', False
     )
 
 
 @pytest.mark.parametrize("case", ["a", "all", "&"])
 def test_redirect_all(case):
-    assert check_xonsh_ast({}, '$[echo "test" {}> test.txt]'.format(case), False)
+    assert check_xonsh_ast({}, f'$[echo "test" {case}> test.txt]', False)
     assert check_xonsh_ast(
-        {}, '$[< input.txt echo "test" {}> test.txt]'.format(case), False
+        {}, f'$[< input.txt echo "test" {case}> test.txt]', False
     )
     assert check_xonsh_ast(
-        {}, '$[echo "test" {}> test.txt < input.txt]'.format(case), False
+        {}, f'$[echo "test" {case}> test.txt < input.txt]', False
     )
 
 
@@ -2530,12 +2530,12 @@ def test_redirect_all(case):
 )
 @pytest.mark.parametrize("o", ["", "o", "out", "1"])
 def test_redirect_error_to_output(r, o):
-    assert check_xonsh_ast({}, '$[echo "test" {} {}> test.txt]'.format(r, o), False)
+    assert check_xonsh_ast({}, f'$[echo "test" {r} {o}> test.txt]', False)
     assert check_xonsh_ast(
-        {}, '$[< input.txt echo "test" {} {}> test.txt]'.format(r, o), False
+        {}, f'$[< input.txt echo "test" {r} {o}> test.txt]', False
     )
     assert check_xonsh_ast(
-        {}, '$[echo "test" {} {}> test.txt < input.txt]'.format(r, o), False
+        {}, f'$[echo "test" {r} {o}> test.txt < input.txt]', False
     )
 
 
@@ -2557,12 +2557,12 @@ def test_redirect_error_to_output(r, o):
 )
 @pytest.mark.parametrize("e", ["e", "err", "2"])
 def test_redirect_output_to_error(r, e):
-    assert check_xonsh_ast({}, '$[echo "test" {} {}> test.txt]'.format(r, e), False)
+    assert check_xonsh_ast({}, f'$[echo "test" {r} {e}> test.txt]', False)
     assert check_xonsh_ast(
-        {}, '$[< input.txt echo "test" {} {}> test.txt]'.format(r, e), False
+        {}, f'$[< input.txt echo "test" {r} {e}> test.txt]', False
     )
     assert check_xonsh_ast(
-        {}, '$[echo "test" {} {}> test.txt < input.txt]'.format(r, e), False
+        {}, f'$[echo "test" {r} {e}> test.txt < input.txt]', False
     )
 
 
@@ -2605,7 +2605,7 @@ MACRO_ARGS = [
 
 @pytest.mark.parametrize("s", MACRO_ARGS)
 def test_macro_call_one_arg(s):
-    f = "f!({})".format(s)
+    f = f"f!({s})"
     tree = check_xonsh_ast({}, f, False, return_obs=True)
     assert isinstance(tree, AST)
     args = tree.body.args[1].elts
@@ -2615,7 +2615,7 @@ def test_macro_call_one_arg(s):
 
 @pytest.mark.parametrize("s,t", itertools.product(MACRO_ARGS[::2], MACRO_ARGS[1::2]))
 def test_macro_call_two_args(s, t):
-    f = "f!({}, {})".format(s, t)
+    f = f"f!({s}, {t})"
     tree = check_xonsh_ast({}, f, False, return_obs=True)
     assert isinstance(tree, AST)
     args = tree.body.args[1].elts
@@ -2628,7 +2628,7 @@ def test_macro_call_two_args(s, t):
     "s,t,u", itertools.product(MACRO_ARGS[::3], MACRO_ARGS[1::3], MACRO_ARGS[2::3])
 )
 def test_macro_call_three_args(s, t, u):
-    f = "f!({}, {}, {})".format(s, t, u)
+    f = f"f!({s}, {t}, {u})"
     tree = check_xonsh_ast({}, f, False, return_obs=True)
     assert isinstance(tree, AST)
     args = tree.body.args[1].elts
@@ -2699,7 +2699,7 @@ def test_arg_single_subprocbang(opener, closer, body):
     "body", ["echo -n!x", "echo -n!x", "echo -n !x", "echo -n ! x"]
 )
 def test_arg_single_subprocbang_nested(opener, closer, ipener, iloser, body):
-    code = opener + "echo " + ipener + body + iloser + closer
+    code = f"{opener}echo {ipener}{body}{iloser}{closer}"
     tree = check_xonsh_ast({}, opener + body + closer, False, return_obs=True)
     assert isinstance(tree, AST)
     cmd = tree.body.args[0].elts
@@ -2760,7 +2760,7 @@ WITH_BANG_RAWSUITES = [
 
 @pytest.mark.parametrize("body", WITH_BANG_RAWSUITES)
 def test_withbang_single_suite(body):
-    code = "with! x:\n{}".format(textwrap.indent(body, "    "))
+    code = f'with! x:\n{textwrap.indent(body, "    ")}'
     tree = check_xonsh_ast({}, code, False, return_obs=True, mode="exec")
     assert isinstance(tree, AST)
     wither = tree.body[0]
@@ -2775,7 +2775,7 @@ def test_withbang_single_suite(body):
 
 @pytest.mark.parametrize("body", WITH_BANG_RAWSUITES)
 def test_withbang_as_single_suite(body):
-    code = "with! x as y:\n{}".format(textwrap.indent(body, "    "))
+    code = f'with! x as y:\n{textwrap.indent(body, "    ")}'
     tree = check_xonsh_ast({}, code, False, return_obs=True, mode="exec")
     assert isinstance(tree, AST)
     wither = tree.body[0]
@@ -2791,7 +2791,7 @@ def test_withbang_as_single_suite(body):
 
 @pytest.mark.parametrize("body", WITH_BANG_RAWSUITES)
 def test_withbang_single_suite_trailing(body):
-    code = "with! x:\n{}\nprint(x)\n".format(textwrap.indent(body, "    "))
+    code = f'with! x:\n{textwrap.indent(body, "    ")}\nprint(x)\n'
     tree = check_xonsh_ast(
         {},
         code,
@@ -2821,7 +2821,7 @@ WITH_BANG_RAWSIMPLE = [
 
 @pytest.mark.parametrize("body", WITH_BANG_RAWSIMPLE)
 def test_withbang_single_simple(body):
-    code = "with! x: {}\n".format(body)
+    code = f"with! x: {body}\n"
     tree = check_xonsh_ast({}, code, False, return_obs=True, mode="exec")
     assert isinstance(tree, AST)
     wither = tree.body[0]
@@ -2836,7 +2836,7 @@ def test_withbang_single_simple(body):
 
 @pytest.mark.parametrize("body", WITH_BANG_RAWSIMPLE)
 def test_withbang_single_simple_opt(body):
-    code = "with! x as y: {}\n".format(body)
+    code = f"with! x as y: {body}\n"
     tree = check_xonsh_ast({}, code, False, return_obs=True, mode="exec")
     assert isinstance(tree, AST)
     wither = tree.body[0]
@@ -2926,19 +2926,19 @@ def test_syntax_error_del_ifexp():
 )
 def test_syntax_error_del_comps(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("del {}".format(exp))
+        PARSER.parse(f"del {exp}")
 
 
 @pytest.mark.parametrize("exp", ["x + y", "x and y", "-x"])
 def test_syntax_error_del_ops(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("del {}".format(exp))
+        PARSER.parse(f"del {exp}")
 
 
 @pytest.mark.parametrize("exp", ["x > y", "x > y == z"])
 def test_syntax_error_del_cmp(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("del {}".format(exp))
+        PARSER.parse(f"del {exp}")
 
 
 def test_syntax_error_lonely_del():
@@ -2987,19 +2987,19 @@ def test_syntax_error_assign_ifexp():
 )
 def test_syntax_error_assign_comps(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("{} = z".format(exp))
+        PARSER.parse(f"{exp} = z")
 
 
 @pytest.mark.parametrize("exp", ["x + y", "x and y", "-x"])
 def test_syntax_error_assign_ops(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("{} = z".format(exp))
+        PARSER.parse(f"{exp} = z")
 
 
 @pytest.mark.parametrize("exp", ["x > y", "x > y == z"])
 def test_syntax_error_assign_cmp(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("{} = a".format(exp))
+        PARSER.parse(f"{exp} = a")
 
 
 def test_syntax_error_augassign_literal():
@@ -3043,19 +3043,19 @@ def test_syntax_error_augassign_ifexp():
 )
 def test_syntax_error_augassign_comps(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("{} += z".format(exp))
+        PARSER.parse(f"{exp} += z")
 
 
 @pytest.mark.parametrize("exp", ["x + y", "x and y", "-x"])
 def test_syntax_error_augassign_ops(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("{} += z".format(exp))
+        PARSER.parse(f"{exp} += z")
 
 
 @pytest.mark.parametrize("exp", ["x > y", "x > y +=+= z"])
 def test_syntax_error_augassign_cmp(exp):
     with pytest.raises(SyntaxError):
-        PARSER.parse("{} += a".format(exp))
+        PARSER.parse(f"{exp} += a")
 
 
 def test_syntax_error_bar_kwonlyargs():

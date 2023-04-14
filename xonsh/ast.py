@@ -155,28 +155,27 @@ if PYTHON_VERSION_INFO >= (3, 6, 0):
 def leftmostname(node):
     """Attempts to find the first name in the tree."""
     if isinstance(node, Name):
-        rtn = node.id
+        return node.id
     elif isinstance(node, (BinOp, Compare)):
-        rtn = leftmostname(node.left)
+        return leftmostname(node.left)
     elif isinstance(node, (Attribute, Subscript, Starred, Expr)):
-        rtn = leftmostname(node.value)
+        return leftmostname(node.value)
     elif isinstance(node, Call):
-        rtn = leftmostname(node.func)
+        return leftmostname(node.func)
     elif isinstance(node, UnaryOp):
-        rtn = leftmostname(node.operand)
+        return leftmostname(node.operand)
     elif isinstance(node, BoolOp):
-        rtn = leftmostname(node.values[0])
+        return leftmostname(node.values[0])
     elif isinstance(node, (Assign, AnnAssign)):
-        rtn = leftmostname(node.targets[0])
+        return leftmostname(node.targets[0])
     elif isinstance(node, (Str, Bytes, JoinedStr)):
         # handles case of "./my executable"
-        rtn = leftmostname(node.s)
+        return leftmostname(node.s)
     elif isinstance(node, Tuple) and len(node.elts) > 0:
         # handles case of echo ,1,2,3
-        rtn = leftmostname(node.elts[0])
+        return leftmostname(node.elts[0])
     else:
-        rtn = None
-    return rtn
+        return None
 
 
 def get_lineno(node, default=0):
@@ -242,9 +241,7 @@ def gather_names(node):
 def get_id_ctx(node):
     """Gets the id and attribute of a node, or returns a default."""
     nid = getattr(node, "id", None)
-    if nid is None:
-        return (None, None)
-    return (nid, node.ctx)
+    return (None, None) if nid is None else (nid, node.ctx)
 
 
 def gather_load_store_names(node):
@@ -315,12 +312,11 @@ def isexpression(node, ctx=None, *args, **kwargs):
         node = builtins.__xonsh__.execer.parse(node, ctx, *args, **kwargs)
     # determin if expresission-like enough
     if isinstance(node, (Expr, Expression)):
-        isexpr = True
+        return True
     elif isinstance(node, Module) and len(node.body) == 1:
-        isexpr = isinstance(node.body[0], (Expr, Expression))
+        return isinstance(node.body[0], (Expr, Expression))
     else:
-        isexpr = False
-    return isexpr
+        return False
 
 
 class CtxAwareTransformer(NodeTransformer):
@@ -406,9 +402,7 @@ class CtxAwareTransformer(NodeTransformer):
                 maxcol = find_next_break(line, mincol=mincol, lexer=self.parser.lexer)
             elif nlogical > 1:
                 maxcol = None
-            elif maxcol < len(line) and line[maxcol] == ";":
-                pass
-            else:
+            elif maxcol >= len(line) or line[maxcol] != ";":
                 maxcol += 1
         spline = subproc_toks(
             line,
@@ -417,7 +411,7 @@ class CtxAwareTransformer(NodeTransformer):
             returnline=False,
             lexer=self.parser.lexer,
         )
-        if spline is None or spline != "![{}]".format(line[mincol:maxcol].strip()):
+        if spline is None or spline != f"![{line[mincol:maxcol].strip()}]":
             # failed to get something consistent, try greedy wrap
             spline = subproc_toks(
                 line,
@@ -444,7 +438,7 @@ class CtxAwareTransformer(NodeTransformer):
             newnode.col_offset = node.col_offset
             if self.debug_level > 1:
                 msg = "{0}:{1}:{2}{3} - {4}\n" "{0}:{1}:{2}{3} + {5}"
-                mstr = "" if maxcol is None else ":" + str(maxcol)
+                mstr = "" if maxcol is None else f":{str(maxcol)}"
                 msg = msg.format(self.filename, node.lineno, mincol, mstr, line, spline)
                 print(msg, file=sys.stderr)
         except SyntaxError:
@@ -487,16 +481,15 @@ class CtxAwareTransformer(NodeTransformer):
             node.value = self.visit(node.value)  # this allows diving into BoolOps
         if self.is_in_scope(node) or isinstance(node.value, Lambda):
             return node
-        else:
-            newnode = self.try_subproc_toks(node)
-            if not isinstance(newnode, Expr):
-                newnode = Expr(
-                    value=newnode, lineno=node.lineno, col_offset=node.col_offset
-                )
-                if hasattr(node, "max_lineno"):
-                    newnode.max_lineno = node.max_lineno
-                    newnode.max_col = node.max_col
-            return newnode
+        newnode = self.try_subproc_toks(node)
+        if not isinstance(newnode, Expr):
+            newnode = Expr(
+                value=newnode, lineno=node.lineno, col_offset=node.col_offset
+            )
+            if hasattr(node, "max_lineno"):
+                newnode.max_lineno = node.max_lineno
+                newnode.max_col = node.max_col
+        return newnode
 
     def visit_UnaryOp(self, node):
         """Handle visiting an unary operands, like not."""
@@ -632,7 +625,7 @@ def pdump(s, **kwargs):
     lens = len(s) + 1
     if lens == 1:
         return s
-    i = min([s.find(o) % lens for o in openers])
+    i = min(s.find(o) % lens for o in openers)
     if i == lens - 1:
         return s
     closer = closers[openers.find(s[i])]

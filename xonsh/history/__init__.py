@@ -1,9 +1,7 @@
 # amalgamate exclude
 import os as _os
 
-if _os.getenv("XONSH_DEBUG", ""):
-    pass
-else:
+if not _os.getenv("XONSH_DEBUG", ""):
     import sys as _sys
 
     try:

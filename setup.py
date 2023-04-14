@@ -53,7 +53,7 @@ def clean_tables():
     for f in TABLES:
         if os.path.isfile(f):
             os.remove(f)
-            print("Removed " + f)
+            print(f"Removed {f}")
 
 
 os.environ["XONSH_DEBUG"] = "1"
@@ -170,8 +170,8 @@ def dirty_version():
         _date = ""
         print("failed to get commit date", file=sys.stderr)
     with open("xonsh/dev.githash", "w") as f:
-        f.write("{}|{}".format(sha, _date))
-    print("wrote git version: " + sha, file=sys.stderr)
+        f.write(f"{sha}|{_date}")
+    print(f"wrote git version: {sha}", file=sys.stderr)
     return True
 
 
@@ -187,7 +187,7 @@ def replace_version(N):
     msg_assert = "__version__ must be the first line of the __init__.py"
     assert "__version__" in lines[0], msg_assert
     ORIGINAL_VERSION_LINE = lines[0]
-    lines[0] = lines[0].rstrip(' "') + '.dev{}"'.format(N)
+    lines[0] = lines[0].rstrip(' "') + f'.dev{N}"'
     upd = "\n".join(lines) + "\n"
     with open("xonsh/__init__.py", "w") as f:
         f.write(upd)
@@ -258,7 +258,7 @@ class install_scripts_quoted_shebang(install_scripts):
             and " " in shebang[2:].strip()
             and '"' not in shebang
         ):
-            quoted_shebang = '#!"%s"' % shebang[2:].strip()
+            quoted_shebang = f'#!"{shebang[2:].strip()}"'
             contents = contents.replace(shebang, quoted_shebang)
         super().write_script(script_name, contents, mode, *ignored)
 
@@ -278,9 +278,7 @@ class install_scripts_rewrite(install_scripts):
                     with open(file, "r") as f:
                         content = f.read()
 
-                    processed = content.replace(
-                        " python3 ", ' "{}" '.format(exec_param)
-                    )
+                    processed = content.replace(" python3 ", f' "{exec_param}" ')
 
                     with open(file, "w") as f:
                         f.write(processed)
@@ -317,9 +315,7 @@ if HAVE_SETUPTOOLS:
         def install_script(self, dist, script_name, script_text, dev_path=None):
             if script_name == "xon.sh":
                 # change default python3 to the concrete python binary used to install/develop inside xon.sh script
-                script_text = script_text.replace(
-                    " python3 ", ' "{}" '.format(sys.executable)
-                )
+                script_text = script_text.replace(" python3 ", f' "{sys.executable}" ')
             super().install_script(dist, script_name, script_text, dev_path)
 
 
@@ -337,11 +333,9 @@ def main():
         readme = f.read()
     scripts = ["scripts/xon.sh"]
     if sys.platform == "win32":
-        scripts.append("scripts/xonsh.bat")
-        scripts.append("scripts/xonsh-cat.bat")
+        scripts.extend(("scripts/xonsh.bat", "scripts/xonsh-cat.bat"))
     else:
-        scripts.append("scripts/xonsh")
-        scripts.append("scripts/xonsh-cat")
+        scripts.extend(("scripts/xonsh", "scripts/xonsh-cat"))
     skw = dict(
         name="xonsh",
         description="Python-powered, cross-platform, Unix-gazing shell",

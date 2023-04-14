@@ -28,15 +28,14 @@ class Parser:
     precedence = ()
 
     def __init__(self, **kw):
-        self.debug = kw.get('debug', 0)
         self.names = {}
+        self.debug = kw.get('debug', 0)
         try:
-            modname = os.path.split(os.path.splitext(__file__)[0])[
-                1] + "_" + self.__class__.__name__
+            modname = f"{os.path.split(os.path.splitext(__file__)[0])[1]}_{self.__class__.__name__}"
         except:
             modname = "parser" + "_" + self.__class__.__name__
-        self.debugfile = modname + ".dbg"
-        self.tabmodule = modname + "_" + "parsetab"
+        self.debugfile = f"{modname}.dbg"
+        self.tabmodule = f"{modname}_parsetab"
         # print self.debugfile, self.tabmodule
 
         # Build the lexer and parser
@@ -82,7 +81,7 @@ class Calc(Parser):
         try:
             t.value = int(t.value)
         except ValueError:
-            print("Integer value too large %s" % t.value)
+            print(f"Integer value too large {t.value}")
             t.value = 0
         # print "parsed number %s" % repr(t.value)
         return t
@@ -94,7 +93,7 @@ class Calc(Parser):
         t.lexer.lineno += t.value.count("\n")
 
     def t_error(self, t):
-        print("Illegal character '%s'" % t.value[0])
+        print(f"Illegal character '{t.value[0]}'")
         t.lexer.skip(1)
 
     # Parsing rules
@@ -151,12 +150,12 @@ class Calc(Parser):
         try:
             p[0] = self.names[p[1]]
         except LookupError:
-            print("Undefined name '%s'" % p[1])
+            print(f"Undefined name '{p[1]}'")
             p[0] = 0
 
     def p_error(self, p):
         if p:
-            print("Syntax error at '%s'" % p.value)
+            print(f"Syntax error at '{p.value}'")
         else:
             print("Syntax error at EOF")
 

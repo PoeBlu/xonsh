@@ -44,7 +44,7 @@ class TestWhich:
         testdir = self.testdirs[0].name
         arg = "not_a_file"
         matches = list(_which.whichgen(arg, path=[testdir], exts=self.exts))
-        assert len(matches) == 0
+        assert not matches
 
     def test_whichgen_verbose(self):
         testdir = self.testdirs[0].name
@@ -72,7 +72,7 @@ class TestWhich:
             testdir = self.testdirs[0].name
             arg = "whichtestapp2"
             matches = list(_which.whichgen(arg, path=[testdir], exts=self.exts))
-            assert len(matches) == 0
+            assert not matches
 
         def test_whichgen_ext_success(self):
             testdir = self.testdirs[0].name
@@ -82,14 +82,13 @@ class TestWhich:
             assert self._file_match(matches[0][0], os.path.join(testdir, arg))
 
     def _file_match(self, path1, path2):
-        if ON_WINDOWS:
-            path1 = os.path.normpath(os.path.normcase(path1))
-            path2 = os.path.normpath(os.path.normcase(path2))
-            path1 = os.path.splitext(path1)[0]
-            path2 = os.path.splitext(path2)[0]
-            return path1 == path2
-        else:
+        if not ON_WINDOWS:
             return os.path.samefile(path1, path2)
+        path1 = os.path.normpath(os.path.normcase(path1))
+        path2 = os.path.normpath(os.path.normcase(path2))
+        path1 = os.path.splitext(path1)[0]
+        path2 = os.path.splitext(path2)[0]
+        return path1 == path2
 
 
 def test_uptime():

@@ -181,8 +181,7 @@ ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004  # VT100 (Win 10)
 
 def check_zero(result, func, args):
     if not result:
-        err = ctypes.get_last_error()
-        if err:
+        if err := ctypes.get_last_error():
             raise ctypes.WinError(err)
     return args
 
@@ -511,8 +510,7 @@ def set_console_screen_buffer_size(x, y, fd=1):
     coord.X = x
     coord.Y = y
     hcon = STDHANDLES[fd]
-    rtn = SetConsoleScreenBufferSize(hcon, coord)
-    return rtn
+    return SetConsoleScreenBufferSize(hcon, coord)
 
 
 @lazyobject
@@ -545,5 +543,4 @@ def set_console_cursor_position(x, y, fd=1):
     coord.X = x
     coord.Y = y
     hcon = STDHANDLES[fd]
-    rtn = SetConsoleCursorPosition(hcon, coord)
-    return rtn
+    return SetConsoleCursorPosition(hcon, coord)

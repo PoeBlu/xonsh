@@ -90,8 +90,10 @@ def _xh_sqlite_get_records(cursor, sessionid=None, limit=None, newest_first=Fals
 
 
 def _xh_sqlite_delete_records(cursor, size_to_keep):
-    sql = "SELECT min(tsb) FROM ("
-    sql += "SELECT tsb FROM xonsh_history ORDER BY tsb DESC "
+    sql = (
+        "SELECT min(tsb) FROM ("
+        + "SELECT tsb FROM xonsh_history ORDER BY tsb DESC "
+    )
     sql += "LIMIT %d)" % size_to_keep
     cursor.execute(sql)
     result = cursor.fetchone()

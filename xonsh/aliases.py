@@ -83,25 +83,22 @@ class Aliases(cabc.MutableMapping):
         callable.  The resulting callable will be "partially applied" with
         ``["-al", "arg"]``.
         """
-        # Beware of mutability: default values for keyword args are evaluated
-        # only once.
         if callable(value):
             return partial_eval_alias(value, acc_args=acc_args)
+        expand_path = builtins.__xonsh__.expand_path
+        token, *rest = map(expand_path, value)
+        if token in seen_tokens or token not in self._raw:
+            # ^ Making sure things like `egrep=egrep --color=auto` works,
+            # and that `l` evals to `ls --color=auto -CF` if `l=ls -CF`
+            # and `ls=ls --color=auto`
+            rtn = [token]
+            rtn.extend(rest)
+            rtn.extend(acc_args)
+            return rtn
         else:
-            expand_path = builtins.__xonsh__.expand_path
-            token, *rest = map(expand_path, value)
-            if token in seen_tokens or token not in self._raw:
-                # ^ Making sure things like `egrep=egrep --color=auto` works,
-                # and that `l` evals to `ls --color=auto -CF` if `l=ls -CF`
-                # and `ls=ls --color=auto`
-                rtn = [token]
-                rtn.extend(rest)
-                rtn.extend(acc_args)
-                return rtn
-            else:
-                seen_tokens = seen_tokens | {token}
-                acc_args = rest + list(acc_args)
-                return self.eval_alias(self._raw[token], seen_tokens, acc_args)
+            seen_tokens = seen_tokens | {token}
+            acc_args = rest + list(acc_args)
+            return self.eval_alias(self._raw[token], seen_tokens, acc_args)
 
     def expand_alias(self, line):
         """Expands any aliases present in line if alias does not point to a
@@ -123,7 +120,7 @@ class Aliases(cabc.MutableMapping):
 
     def __setitem__(self, key, val):
         if isinstance(val, str):
-            f = "<exec-alias:" + key + ">"
+            f = f"<exec-alias:{key}>"
             if SUB_EXEC_ALIAS_RE.search(val) is not None:
                 # We have a sub-command, e.g. $(cmd), to evaluate
                 self._raw[key] = ExecAlias(val, filename=f)
@@ -160,7 +157,7 @@ class Aliases(cabc.MutableMapping):
 
     def _repr_pretty_(self, p, cycle):
         name = "{0}.{1}".format(self.__class__.__module__, self.__class__.__name__)
-        with p.group(0, name + "(", ")"):
+        with p.group(0, f"{name}(", ")"):
             if cycle:
                 p.text("...")
             elif len(self):
@@ -227,10 +224,11 @@ class PartialEvalAlias0(PartialEvalAliasBase):
     def __call__(
         self, args, stdin=None, stdout=None, stderr=None, spec=None, stack=None
     ):
-        args = list(self.acc_args) + args
-        if args:
-            msg = "callable alias {f!r} takes no arguments, but {args!f} provided. "
-            msg += "Of these {acc_args!r} were partially applied."
+        if args := list(self.acc_args) + args:
+            msg = (
+                "callable alias {f!r} takes no arguments, but {args!f} provided. "
+                + "Of these {acc_args!r} were partially applied."
+            )
             raise XonshError(msg.format(f=self.f, args=args, acc_args=self.acc_args))
         return self.f()
 
@@ -304,18 +302,14 @@ def partial_eval_alias(f, acc_args=()):
     # need to dispatch
     numargs = 0
     for name, param in inspect.signature(f).parameters.items():
-        if (
-            param.kind == param.POSITIONAL_ONLY
-            or param.kind == param.POSITIONAL_OR_KEYWORD
-        ):
+        if param.kind in [param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD]:
             numargs += 1
         elif name in ALIAS_KWARG_NAMES and param.kind == param.KEYWORD_ONLY:
             numargs += 1
     if numargs < 7:
         return PARTIAL_EVAL_ALIASES[numargs](f, acc_args=acc_args)
-    else:
-        e = "Expected proxy with 6 or fewer arguments for {}, not {}"
-        raise XonshError(e.format(", ".join(ALIAS_KWARG_NAMES), numargs))
+    e = "Expected proxy with 6 or fewer arguments for {}, not {}"
+    raise XonshError(e.format(", ".join(ALIAS_KWARG_NAMES), numargs))
 
 
 #
@@ -478,8 +472,8 @@ def source_foreign(args, stdin=None, stdout=None, stderr=None):
         pass  # don't change prevcmd if given explicitly
     elif os.path.isfile(ns.files_or_code[0]):
         # we have filename to source
-        ns.prevcmd = '{} "{}"'.format(ns.sourcer, '" "'.join(ns.files_or_code))
-    elif ns.prevcmd is None:
+        ns.prevcmd = f"""{ns.sourcer} "{'" "'.join(ns.files_or_code)}\""""
+    else:
         ns.prevcmd = " ".join(ns.files_or_code)  # code to run, no files
     foreign_shell_data.cache_clear()  # make sure that we don't get prev src
     fsenv, fsaliases = foreign_shell_data(
@@ -503,10 +497,11 @@ def source_foreign(args, stdin=None, stdout=None, stderr=None):
     if fsenv is None:
         if ns.dryrun:
             return
-        else:
-            msg = "xonsh: error: Source failed: {0!r}\n".format(ns.prevcmd)
-            msg += "xonsh: error: Possible reasons: File not found or syntax error\n"
-            return (None, msg, 1)
+        msg = (
+            "xonsh: error: Source failed: {0!r}\n".format(ns.prevcmd)
+            + "xonsh: error: Possible reasons: File not found or syntax error\n"
+        )
+        return (None, msg, 1)
     # apply results
     denv = env.detype()
     for k, v in fsenv.items():
@@ -524,9 +519,7 @@ def source_foreign(args, stdin=None, stdout=None, stderr=None):
             continue  # no change from original
         elif ns.overwrite_aliases or k not in baliases:
             baliases[k] = v
-        elif ns.suppress_skip_message:
-            pass
-        else:
+        elif not ns.suppress_skip_message:
             msg = (
                 "Skipping application of {0!r} alias from {1!r} "
                 "since it shares a name with an existing xonsh alias. "
@@ -552,11 +545,9 @@ def source_alias(args, stdin=None):
             fpath = locate_binary(fname)
             if fpath is None:
                 if env.get("XONSH_DEBUG"):
-                    print("source: {}: No such file".format(fname), file=sys.stderr)
+                    print(f"source: {fname}: No such file", file=sys.stderr)
                 if i == 0:
-                    raise RuntimeError(
-                        "must source at least one file, " + fname + "does not exist."
-                    )
+                    raise RuntimeError(f"must source at least one file, {fname}does not exist.")
                 break
         _, fext = os.path.splitext(fpath)
         if fext and fext != ".xsh" and fext != ".py":
@@ -593,17 +584,20 @@ def source_cmd(args, stdin=None):
     fpath = locate_binary(args[0])
     args[0] = fpath if fpath else args[0]
     if not os.path.isfile(args[0]):
-        return (None, "xonsh: error: File not found: {}\n".format(args[0]), 1)
-    prevcmd = "call "
-    prevcmd += " ".join([argvquote(arg, force=True) for arg in args])
+        return None, f"xonsh: error: File not found: {args[0]}\n", 1
+    prevcmd = "call " + " ".join([argvquote(arg, force=True) for arg in args])
     prevcmd = escape_windows_cmd_string(prevcmd)
-    args.append("--prevcmd={}".format(prevcmd))
+    args.append(f"--prevcmd={prevcmd}")
     args.insert(0, "cmd")
-    args.append("--interactive=0")
-    args.append("--sourcer=call")
-    args.append("--envcmd=set")
-    args.append("--seterrpostcmd=if errorlevel 1 exit 1")
-    args.append("--use-tmpfile=1")
+    args.extend(
+        (
+            "--interactive=0",
+            "--sourcer=call",
+            "--envcmd=set",
+            "--seterrpostcmd=if errorlevel 1 exit 1",
+            "--use-tmpfile=1",
+        )
+    )
     with builtins.__xonsh__.env.swap(PROMPT="$P$G"):
         return source_foreign(args, stdin=stdin)
 
@@ -632,18 +626,14 @@ def xexec(args, stdin=None):
     """
     if len(args) == 0:
         return (None, "xonsh: exec: no args specified\n", 1)
-    elif args[0] == "-h" or args[0] == "--help":
+    elif args[0] in ["-h", "--help"]:
         return inspect.getdoc(xexec)
     else:
         denv = builtins.__xonsh__.env.detype()
         try:
             os.execvpe(args[0], args, denv)
         except FileNotFoundError as e:
-            return (
-                None,
-                "xonsh: exec: file not found: {}: {}" "\n".format(e.args[1], args[0]),
-                1,
-            )
+            return None, f"xonsh: exec: file not found: {e.args[1]}: {args[0]}\n", 1
 
 
 class AWitchAWitch(argparse.Action):

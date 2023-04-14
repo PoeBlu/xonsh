@@ -22,13 +22,8 @@ from tools import (
 
 
 XONSH_PREFIX = xonsh.__file__
-if "site-packages" in XONSH_PREFIX:
-    # must be installed version of xonsh
-    num_up = 5
-else:
-    # must be in source dir
-    num_up = 2
-for i in range(num_up):
+num_up = 5 if "site-packages" in XONSH_PREFIX else 2
+for _ in range(num_up):
     XONSH_PREFIX = os.path.dirname(XONSH_PREFIX)
 PATH = (
     os.path.join(os.path.dirname(__file__), "bin")
@@ -517,7 +512,7 @@ def test_subshells(cmd, fmt, exp):
 @pytest.mark.parametrize("cmd, exp", [("pwd", lambda: os.getcwd() + "\n")])
 def test_redirect_out_to_file(cmd, exp, tmpdir):
     outfile = tmpdir.mkdir("xonsh_test_dir").join("xonsh_test_file")
-    command = "{} > {}\n".format(cmd, outfile)
+    command = f"{cmd} > {outfile}\n"
     out, _, _ = run_xonsh(command)
     content = outfile.read()
     if callable(exp):

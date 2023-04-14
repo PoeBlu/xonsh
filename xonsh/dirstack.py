@@ -52,7 +52,7 @@ def _unc_check_enabled() -> bool:
         except OSError as e:  # NOQA
             pass
 
-    return False if wval else True
+    return not wval
 
 
 def _is_unc_path(some_path) -> bool:
@@ -84,21 +84,20 @@ def _unc_map_temp_drive(unc_path) -> str:
 
     if not _unc_check_enabled():
         return unc_path
-    else:
-        unc_share, rem_path = os.path.splitdrive(unc_path)
-        unc_share = unc_share.casefold()
-        for d in _unc_tempDrives:
-            if _unc_tempDrives[d] == unc_share:
-                return os.path.join(d, rem_path)
+    unc_share, rem_path = os.path.splitdrive(unc_path)
+    unc_share = unc_share.casefold()
+    for d in _unc_tempDrives:
+        if _unc_tempDrives[d] == unc_share:
+            return os.path.join(d, rem_path)
 
-        for dord in range(ord("z"), ord("a"), -1):
-            d = chr(dord) + ":"
-            if not os.path.isdir(d):  # find unused drive letter starting from z:
-                subprocess.check_output(
-                    ["NET", "USE", d, unc_share], universal_newlines=True
-                )
-                _unc_tempDrives[d] = unc_share
-                return os.path.join(d, rem_path)
+    for dord in range(ord("z"), ord("a"), -1):
+        d = f"{chr(dord)}:"
+        if not os.path.isdir(d):  # find unused drive letter starting from z:
+            subprocess.check_output(
+                ["NET", "USE", d, unc_share], universal_newlines=True
+            )
+            _unc_tempDrives[d] = unc_share
+            return os.path.join(d, rem_path)
 
 
 def _unc_unmap_temp_drive(left_drive, cwd):
@@ -139,7 +138,7 @@ Fires when the current directory is changed for any reason.
 def _get_cwd():
     try:
         return os.getcwd()
-    except (OSError, FileNotFoundError):
+    except OSError:
         return None
 
 
@@ -154,7 +153,7 @@ def _change_working_directory(newdir, follow_symlinks=False):
 
     try:
         os.chdir(absnew)
-    except (OSError, FileNotFoundError):
+    except OSError:
         if new.endswith(get_sep()):
             new = new[:-1]
         if os.path.basename(new) == "..":
@@ -345,10 +344,7 @@ def pushd(args, stdin=None):
             else:
                 new_pwd = DIRSTACK.pop(len(DIRSTACK) - 1 - num)
         elif args.dir.startswith(BACKWARD):
-            if num == 0:
-                new_pwd = None
-            else:
-                new_pwd = DIRSTACK.pop(num - 1)
+            new_pwd = None if num == 0 else DIRSTACK.pop(num - 1)
         else:
             e = "Invalid argument to pushd: {0}\n"
             return None, e.format(args.dir), 1
@@ -407,13 +403,6 @@ def popd(args, stdin=None):
 
     env = builtins.__xonsh__.env
 
-    if env.get("PUSHD_MINUS"):
-        BACKWARD = "-"
-        FORWARD = "+"
-    else:
-        BACKWARD = "-"
-        FORWARD = "+"
-
     if args.dir is None:
         try:
             new_pwd = DIRSTACK.pop(0)
@@ -431,6 +420,8 @@ def popd(args, stdin=None):
             e = "Invalid argument to popd: {0}\n"
             return None, e.format(args.dir), 1
 
+        FORWARD = "+" if env.get("PUSHD_MINUS") else "+"
+        BACKWARD = "-"
         if num > len(DIRSTACK):
             e = "Too few elements in dirstack ({0} elements)\n"
             return None, e.format(len(DIRSTACK)), 1
@@ -517,13 +508,7 @@ def dirs(args, stdin=None):
     env = builtins.__xonsh__.env
     dirstack = [os.path.expanduser(env["PWD"])] + DIRSTACK
 
-    if env.get("PUSHD_MINUS"):
-        BACKWARD = "-"
-        FORWARD = "+"
-    else:
-        BACKWARD = "-"
-        FORWARD = "+"
-
+    FORWARD = "+" if env.get("PUSHD_MINUS") else "+"
     if args.clear:
         DIRSTACK = []
         return None, None, 0
@@ -562,6 +547,7 @@ def dirs(args, stdin=None):
             e = "Too few elements in dirstack ({0} elements)\n"
             return None, e.format(len(o)), 1
 
+        BACKWARD = "-"
         if N.startswith(BACKWARD):
             idx = num
         elif N.startswith(FORWARD):

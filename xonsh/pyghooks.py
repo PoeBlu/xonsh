@@ -62,7 +62,7 @@ from xonsh.pygments_cache import get_style_by_name
 def _command_is_valid(cmd):
     try:
         cmd_abspath = os.path.abspath(os.path.expanduser(cmd))
-    except (FileNotFoundError, OSError):
+    except OSError:
         return False
     return (cmd in builtins.__xonsh__.commands_cache and not iskeyword(cmd)) or (
         os.path.isfile(cmd_abspath) and os.access(cmd_abspath, os.X_OK)
@@ -74,7 +74,7 @@ def _command_is_autocd(cmd):
         return False
     try:
         cmd_abspath = os.path.abspath(os.path.expanduser(cmd))
-    except (FileNotFoundError, OSError):
+    except OSError:
         return False
     return os.path.isdir(cmd_abspath)
 
@@ -92,7 +92,7 @@ def subproc_arg_callback(_, match):
     text = match.group()
     try:
         ispath = os.path.exists(os.path.expanduser(text))
-    except (FileNotFoundError, OSError):
+    except OSError:
         ispath = False
     yield (match.start(), Name.Constant if ispath else Text, text)
 
@@ -196,10 +196,10 @@ class XonshLexer(Python3Lexer):
         with root or subproc state"""
         start = 0
         state = ("root",)
-        m = re.match(r"(\s*)({})".format(COMMAND_TOKEN_RE), text)
+        m = re.match(f"(\s*)({COMMAND_TOKEN_RE})", text)
         if m is not None:
-            yield m.start(1), Whitespace, m.group(1)
-            cmd = m.group(2)
+            yield (m.start(1), Whitespace, m[1])
+            cmd = m[2]
             cmd_is_valid = _command_is_valid(cmd)
             cmd_is_autocd = _command_is_autocd(cmd)
 
@@ -276,7 +276,7 @@ def color_by_name(name, fg=None, bg=None):
     elif bg is None:
         tokname = fg
     else:
-        tokname = fg + "__" + bg
+        tokname = f"{fg}__{bg}"
     tok = getattr(Color, tokname)
     return tok, fg, bg
 
@@ -322,11 +322,8 @@ def color_name_to_pygments_code(name, styles):
         res = "bg:#" + parts["bghex"][3:]
     elif parts["background"] is not None:
         color = parts["color"]
-        if "#" in color:
-            fgcolor = color
-        else:
-            fgcolor = styles[getattr(Color, color)]
-        res = "bg:" + fgcolor
+        fgcolor = color if "#" in color else styles[getattr(Color, color)]
+        res = f"bg:{fgcolor}"
     else:
         # have regular, non-background color
         mods = parts["modifiers"]
@@ -421,18 +418,15 @@ def _partial_color_tokenize_main(template, styles):
                         styles[color]  # ensure color is available
                 color = next_color
                 value = ""
-        elif field is not None:
+        else:
             parts = [literal, bopen, field]
             if conv is not None and len(conv) > 0:
-                parts.append(expl)
-                parts.append(conv)
+                parts.extend((expl, conv))
             if spec is not None and len(spec) > 0:
                 parts.append(colon)
                 parts.append(spec)
             parts.append(bclose)
             value += "".join(parts)
-        else:
-            value += literal
     toks.append((color, value))
     return toks, color
 
@@ -644,7 +638,7 @@ XONSH_BASE_STYLE = LazyObject(
 
 
 def _bw_style():
-    style = {
+    return {
         Color.BLACK: "noinherit",
         Color.BLUE: "noinherit",
         Color.CYAN: "noinherit",
@@ -663,11 +657,10 @@ def _bw_style():
         Color.WHITE: "noinherit",
         Color.YELLOW: "noinherit",
     }
-    return style
 
 
 def _default_style():
-    style = {
+    return {
         Color.BLACK: "ansiblack",
         Color.BLUE: "ansiblue",
         Color.CYAN: "ansicyan",
@@ -686,11 +679,10 @@ def _default_style():
         Color.WHITE: "ansigray",
         Color.YELLOW: "ansiyellow",
     }
-    return style
 
 
 def _monokai_style():
-    style = {
+    return {
         Color.BLACK: "#1e0010",
         Color.BLUE: "#6666ef",
         Color.CYAN: "#66d9ef",
@@ -709,14 +701,13 @@ def _monokai_style():
         Color.WHITE: "#d7d7d7",
         Color.YELLOW: "#e2e22e",
     }
-    return style
 
 
 ######################################
 #   Auto-generated below this line   #
 ######################################
 def _algol_style():
-    style = {
+    return {
         Color.BLACK: "#666",
         Color.BLUE: "#666",
         Color.CYAN: "#666",
@@ -735,11 +726,10 @@ def _algol_style():
         Color.WHITE: "#888",
         Color.YELLOW: "#FF0000",
     }
-    return style
 
 
 def _algol_nu_style():
-    style = {
+    return {
         Color.BLACK: "#666",
         Color.BLUE: "#666",
         Color.CYAN: "#666",
@@ -758,11 +748,10 @@ def _algol_nu_style():
         Color.WHITE: "#888",
         Color.YELLOW: "#FF0000",
     }
-    return style
 
 
 def _autumn_style():
-    style = {
+    return {
         Color.BLACK: "#000080",
         Color.BLUE: "#0000aa",
         Color.CYAN: "#00aaaa",
@@ -781,11 +770,10 @@ def _autumn_style():
         Color.WHITE: "#aaaaaa",
         Color.YELLOW: "#aa5500",
     }
-    return style
 
 
 def _borland_style():
-    style = {
+    return {
         Color.BLACK: "#000000",
         Color.BLUE: "#000080",
         Color.CYAN: "#008080",
@@ -804,11 +792,10 @@ def _borland_style():
         Color.WHITE: "#aaaaaa",
         Color.YELLOW: "#a61717",
     }
-    return style
 
 
 def _colorful_style():
-    style = {
+    return {
         Color.BLACK: "#000",
         Color.BLUE: "#00C",
         Color.CYAN: "#0e84b5",
@@ -827,11 +814,10 @@ def _colorful_style():
         Color.WHITE: "#bbbbbb",
         Color.YELLOW: "#A60",
     }
-    return style
 
 
 def _emacs_style():
-    style = {
+    return {
         Color.BLACK: "#008000",
         Color.BLUE: "#000080",
         Color.CYAN: "#04D",
@@ -850,11 +836,10 @@ def _emacs_style():
         Color.WHITE: "#bbbbbb",
         Color.YELLOW: "#BB6622",
     }
-    return style
 
 
 def _friendly_style():
-    style = {
+    return {
         Color.BLACK: "#007020",
         Color.BLUE: "#000080",
         Color.CYAN: "#0e84b5",
@@ -873,11 +858,10 @@ def _friendly_style():
         Color.WHITE: "#bbbbbb",
         Color.YELLOW: "#c65d09",
     }
-    return style
 
 
 def _fruity_style():
-    style = {
+    return {
         Color.BLACK: "#0f140f",
         Color.BLUE: "#0086d2",
         Color.CYAN: "#0086d2",
@@ -896,11 +880,10 @@ def _fruity_style():
         Color.WHITE: "#cdcaa9",
         Color.YELLOW: "#fb660a",
     }
-    return style
 
 
 def _igor_style():
-    style = {
+    return {
         Color.BLACK: "#009C00",
         Color.BLUE: "#0000FF",
         Color.CYAN: "#007575",
@@ -919,11 +902,10 @@ def _igor_style():
         Color.WHITE: "#CC00A3",
         Color.YELLOW: "#C34E00",
     }
-    return style
 
 
 def _lovelace_style():
-    style = {
+    return {
         Color.BLACK: "#444444",
         Color.BLUE: "#2838b0",
         Color.CYAN: "#289870",
@@ -942,11 +924,10 @@ def _lovelace_style():
         Color.WHITE: "#888888",
         Color.YELLOW: "#b85820",
     }
-    return style
 
 
 def _manni_style():
-    style = {
+    return {
         Color.BLACK: "#000000",
         Color.BLUE: "#000099",
         Color.CYAN: "#009999",
@@ -965,11 +946,10 @@ def _manni_style():
         Color.WHITE: "#AAAAAA",
         Color.YELLOW: "#CC3300",
     }
-    return style
 
 
 def _murphy_style():
-    style = {
+    return {
         Color.BLACK: "#000",
         Color.BLUE: "#000080",
         Color.CYAN: "#0e84b5",
@@ -988,11 +968,10 @@ def _murphy_style():
         Color.WHITE: "#bbbbbb",
         Color.YELLOW: "#c65d09",
     }
-    return style
 
 
 def _native_style():
-    style = {
+    return {
         Color.BLACK: "#520000",
         Color.BLUE: "#3677a9",
         Color.CYAN: "#24909d",
@@ -1011,11 +990,10 @@ def _native_style():
         Color.WHITE: "#aaaaaa",
         Color.YELLOW: "#a61717",
     }
-    return style
 
 
 def _paraiso_dark_style():
-    style = {
+    return {
         Color.BLACK: "#776e71",
         Color.BLUE: "#815ba4",
         Color.CYAN: "#06b6ef",
@@ -1034,11 +1012,10 @@ def _paraiso_dark_style():
         Color.WHITE: "#5bc4bf",
         Color.YELLOW: "#f99b15",
     }
-    return style
 
 
 def _paraiso_light_style():
-    style = {
+    return {
         Color.BLACK: "#2f1e2e",
         Color.BLUE: "#2f1e2e",
         Color.CYAN: "#06b6ef",
@@ -1057,11 +1034,10 @@ def _paraiso_light_style():
         Color.WHITE: "#8d8687",
         Color.YELLOW: "#f99b15",
     }
-    return style
 
 
 def _pastie_style():
-    style = {
+    return {
         Color.BLACK: "#000000",
         Color.BLUE: "#0000DD",
         Color.CYAN: "#0066bb",
@@ -1080,11 +1056,10 @@ def _pastie_style():
         Color.WHITE: "#bbbbbb",
         Color.YELLOW: "#aa6600",
     }
-    return style
 
 
 def _perldoc_style():
-    style = {
+    return {
         Color.BLACK: "#000080",
         Color.BLUE: "#000080",
         Color.CYAN: "#1e889b",
@@ -1103,11 +1078,10 @@ def _perldoc_style():
         Color.WHITE: "#a7a7a7",
         Color.YELLOW: "#cb6c20",
     }
-    return style
 
 
 def _rrt_style():
-    style = {
+    return {
         Color.BLACK: "#ff0000",
         Color.BLUE: "#87ceeb",
         Color.CYAN: "#87ceeb",
@@ -1126,11 +1100,10 @@ def _rrt_style():
         Color.WHITE: "#87ceeb",
         Color.YELLOW: "#ff0000",
     }
-    return style
 
 
 def _tango_style():
-    style = {
+    return {
         Color.BLACK: "#000000",
         Color.BLUE: "#0000cf",
         Color.CYAN: "#3465a4",
@@ -1149,11 +1122,10 @@ def _tango_style():
         Color.WHITE: "#f8f8f8",
         Color.YELLOW: "#8f5902",
     }
-    return style
 
 
 def _trac_style():
-    style = {
+    return {
         Color.BLACK: "#000000",
         Color.BLUE: "#000080",
         Color.CYAN: "#009999",
@@ -1172,11 +1144,10 @@ def _trac_style():
         Color.WHITE: "#aaaaaa",
         Color.YELLOW: "#808000",
     }
-    return style
 
 
 def _vim_style():
-    style = {
+    return {
         Color.BLACK: "#000080",
         Color.BLUE: "#000080",
         Color.CYAN: "#00cdcd",
@@ -1195,11 +1166,10 @@ def _vim_style():
         Color.WHITE: "#cccccc",
         Color.YELLOW: "#cd0000",
     }
-    return style
 
 
 def _vs_style():
-    style = {
+    return {
         Color.BLACK: "#008000",
         Color.BLUE: "#0000ff",
         Color.CYAN: "#2b91af",
@@ -1218,11 +1188,10 @@ def _vs_style():
         Color.WHITE: "#2b91af",
         Color.YELLOW: "#a31515",
     }
-    return style
 
 
 def _xcode_style():
-    style = {
+    return {
         Color.BLACK: "#000000",
         Color.BLUE: "#1C01CE",
         Color.CYAN: "#3F6E75",
@@ -1241,7 +1210,6 @@ def _xcode_style():
         Color.WHITE: "#3F6E75",
         Color.YELLOW: "#836C28",
     }
-    return style
 
 
 STYLES = LazyDict(
@@ -1314,7 +1282,7 @@ def make_pygments_style(palette):
     style = {getattr(Color, "NO_COLOR"): "noinherit"}
     for name, t in BASE_XONSH_COLORS.items():
         color = find_closest_color(t, palette)
-        style[getattr(Color, name)] = "#" + color
+        style[getattr(Color, name)] = f"#{color}"
     return style
 
 
@@ -1344,10 +1312,11 @@ def _monkey_patch_pygments_codes():
         return
 
     if not getattr(pygments.console, "_xonsh_patched", False):
-        patched_codes = {}
-        for new, old in PTK_NEW_OLD_COLOR_MAP.items():
-            if old in pygments.console.codes:
-                patched_codes[new[1:]] = pygments.console.codes[old]
+        patched_codes = {
+            new[1:]: pygments.console.codes[old]
+            for new, old in PTK_NEW_OLD_COLOR_MAP.items()
+            if old in pygments.console.codes
+        }
         pygments.console.codes.update(patched_codes)
         pygments.console._xonsh_patched = True
 
@@ -1396,7 +1365,7 @@ def XonshHtmlFormatter():
     def colorformat(text):
         if text in ansicolors:
             return text
-        if text[0:1] == "#":
+        if text[:1] == "#":
             col = text[1:]
             if len(col) == 6:
                 return col

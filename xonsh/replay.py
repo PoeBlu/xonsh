@@ -72,7 +72,7 @@ class Replayer(object):
         new_env = {}
         for e in merge_envs:
             if e == "replay":
-                new_env.update(re_env)
+                new_env |= re_env
             elif e == "native":
                 new_env.update(builtins.__xonsh__.env)
             elif isinstance(e, cabc.Mapping):

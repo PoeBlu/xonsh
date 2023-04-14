@@ -110,7 +110,7 @@ def test_subproc_toks_git():
 def test_subproc_toks_git_semi():
     s = 'git commit -am "hello doc"'
     exp = "![{0}];".format(s)
-    obs = subproc_toks(s + ";", lexer=LEXER, returnline=True)
+    obs = subproc_toks(f"{s};", lexer=LEXER, returnline=True)
     assert exp == obs
 
 
@@ -396,7 +396,7 @@ def test_subproc_toks_pyeval_nested():
     ],
 )
 def test_subproc_toks_and_or(phrase):
-    s = "echo " + phrase
+    s = f"echo {phrase}"
     exp = "![{0}]".format(s)
     obs = subproc_toks(s, lexer=LEXER, returnline=True)
     assert exp == obs
@@ -823,26 +823,13 @@ def test_is_env_path(inp, exp):
     assert exp == obs
 
 
-@pytest.mark.parametrize(
-    "inp, exp",
-    [
-        ("/home/wakka", ["/home/wakka"]),
-        ("/home/wakka" + os.pathsep + "/home/jawaka", ["/home/wakka", "/home/jawaka"]),
-        (b"/home/wakka", ["/home/wakka"]),
-    ],
-)
+@pytest.mark.parametrize("inp, exp", [("/home/wakka", ["/home/wakka"]), (f"/home/wakka{os.pathsep}/home/jawaka", ["/home/wakka", "/home/jawaka"]), (b"/home/wakka", ["/home/wakka"])])
 def test_str_to_env_path(inp, exp):
     obs = str_to_env_path(inp)
     assert exp == obs.paths
 
 
-@pytest.mark.parametrize(
-    "inp, exp",
-    [
-        (["/home/wakka"], "/home/wakka"),
-        (["/home/wakka", "/home/jawaka"], "/home/wakka" + os.pathsep + "/home/jawaka"),
-    ],
-)
+@pytest.mark.parametrize("inp, exp", [(["/home/wakka"], "/home/wakka"), (["/home/wakka", "/home/jawaka"], f"/home/wakka{os.pathsep}/home/jawaka")])
 def test_env_path_to_str(inp, exp):
     obs = env_path_to_str(inp)
     assert exp == obs
@@ -892,28 +879,19 @@ def test_env_path_getitem(inp, exp, xonsh_builtins, env):
 
 
 @pytest.mark.parametrize("env", [TOOLS_ENV, ENCODE_ENV_ONLY])
-@pytest.mark.parametrize(
-    "inp, exp",
-    [
-        (
+@pytest.mark.parametrize("inp, exp", [(
             os.pathsep.join(["xonsh_dir", "../", ".", "~/"]),
             ["xonsh_dir", "../", ".", "~/"],
-        ),
-        (
-            "/home/wakka" + os.pathsep + "/home/jakka" + os.pathsep + "~/",
-            ["/home/wakka", "/home/jakka", "~/"],
-        ),
-    ],
-)
+        ), (f"/home/wakka{os.pathsep}/home/jakka{os.pathsep}~/", ["/home/wakka", "/home/jakka", "~/"])])
 def test_env_path_multipath(inp, exp, xonsh_builtins, env):
     # cases that involve path-separated strings
     xonsh_builtins.__xonsh__.env = env
     if env == TOOLS_ENV:
-        obs = [i for i in EnvPath(inp)]
+        obs = list(EnvPath(inp))
         assert [expand(i) for i in exp] == obs
     else:
-        obs = [i for i in EnvPath(inp)]
-        assert [i for i in exp] == obs
+        obs = list(EnvPath(inp))
+        assert list(exp) == obs
 
 
 @pytest.mark.parametrize(
@@ -933,7 +911,7 @@ def test_env_path_multipath(inp, exp, xonsh_builtins, env):
 def test_env_path_with_pathlib_path_objects(inp, exp, xonsh_builtins):
     xonsh_builtins.__xonsh__.env = TOOLS_ENV
     # iterate over EnvPath to acquire all expanded paths
-    obs = [i for i in EnvPath(inp)]
+    obs = list(EnvPath(inp))
     assert [expand(i) for i in exp] == obs
 
 
@@ -992,7 +970,7 @@ def test_env_path_slice_get_all_except_first_element(inp, exp):
     ],
 )
 def test_env_path_slice_path_with_step(inp, exp_a, exp_b):
-    obs_a = EnvPath(inp)[0::2]
+    obs_a = EnvPath(inp)[::2]
     assert exp_a == obs_a
     obs_b = EnvPath(inp)[1::2]
     assert exp_b == obs_b
@@ -1115,17 +1093,10 @@ def test_ensure_slice(inp, exp):
     assert exp == obs
 
 
-@pytest.mark.parametrize(
-    "inp, exp",
-    [
-        ((range(50), slice(25, 40)), list(i for i in range(25, 40))),
-        (
+@pytest.mark.parametrize("inp, exp", [((range(50), slice(25, 40)), list(range(25, 40))), (
             ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [slice(1, 4), slice(6, None)]),
             [2, 3, 4, 7, 8, 9, 10],
-        ),
-        (([1, 2, 3, 4, 5], [slice(-2, None), slice(-5, -3)]), [4, 5, 1, 2]),
-    ],
-)
+        ), (([1, 2, 3, 4, 5], [slice(-2, None), slice(-5, -3)]), [4, 5, 1, 2])])
 def test_get_portions(inp, exp):
     obs = get_portions(*inp)
     assert list(obs) == exp
@@ -1362,7 +1333,7 @@ def test_partial_string_none(inp):
 def test_partial_string(leaders, prefix, quote):
     (l, l_len), (f, f_len) = leaders
     s = prefix + quote
-    t = s + "test string" + quote
+    t = f"{s}test string{quote}"
     t_len = len(t)
     # single string
     test_string = l + t + f
@@ -1396,7 +1367,7 @@ def test_executables_in(xonsh_builtins):
     with TemporaryDirectory() as test_path:
         for _type in types:
             for executable in executables:
-                fname = "%s_%s" % (_type, executable)
+                fname = f"{_type}_{executable}"
                 if _type == "none":
                     continue
                 if _type == "file" and executable:
@@ -1416,13 +1387,11 @@ def test_executables_in(xonsh_builtins):
                         f.write("deleteme")
                         os.symlink(tmp_path, path)
                     os.remove(tmp_path)
-                if executable and not _type == "brokensymlink":
+                if executable and _type != "brokensymlink":
                     os.chmod(path, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
             if ON_WINDOWS:
                 xonsh_builtins.__xonsh__.env = PATHEXT_ENV
-                result = set(executables_in(test_path))
-            else:
-                result = set(executables_in(test_path))
+            result = set(executables_in(test_path))
     assert expected == result
 
 
@@ -1524,7 +1493,7 @@ def test_expand_path(expand_user, inp, expand_env_vars, exp_end, xonsh_builtins)
         home_path = os.path.expanduser("~")
         assert path == home_path + exp_end
     else:
-        assert path == "~" + exp_end
+        assert path == f"~{exp_end}"
 
 
 def test_swap_values():
@@ -1632,33 +1601,33 @@ def test_deprecated_past_expiry_raises_assertion_error(expired_version):
 @skip_if_on_windows
 def test_iglobpath_no_dotfiles(xonsh_builtins):
     d = os.path.dirname(__file__)
-    g = d + "/*"
+    g = f"{d}/*"
     files = list(iglobpath(g, include_dotfiles=False))
-    assert d + "/.somedotfile" not in files
+    assert f"{d}/.somedotfile" not in files
 
 
 @skip_if_on_windows
 def test_iglobpath_dotfiles(xonsh_builtins):
     d = os.path.dirname(__file__)
-    g = d + "/*"
+    g = f"{d}/*"
     files = list(iglobpath(g, include_dotfiles=True))
-    assert d + "/.somedotfile" in files
+    assert f"{d}/.somedotfile" in files
 
 
 @skip_if_on_windows
 def test_iglobpath_no_dotfiles_recursive(xonsh_builtins):
     d = os.path.dirname(__file__)
-    g = d + "/**"
+    g = f"{d}/**"
     files = list(iglobpath(g, include_dotfiles=False))
-    assert d + "/bin/.someotherdotfile" not in files
+    assert f"{d}/bin/.someotherdotfile" not in files
 
 
 @skip_if_on_windows
 def test_iglobpath_dotfiles_recursive(xonsh_builtins):
     d = os.path.dirname(__file__)
-    g = d + "/**"
+    g = f"{d}/**"
     files = list(iglobpath(g, include_dotfiles=True))
-    assert d + "/bin/.someotherdotfile" in files
+    assert f"{d}/bin/.someotherdotfile" in files
 
 
 def test_iglobpath_empty_str(monkeypatch, xonsh_builtins):
@@ -1675,7 +1644,7 @@ def test_iglobpath_empty_str(monkeypatch, xonsh_builtins):
 
     monkeypatch.setattr(os, "listdir", mocklistdir)
     paths = list(iglobpath("some/path"))
-    assert len(paths) == 0
+    assert not paths
 
 
 def test_all_permutations():

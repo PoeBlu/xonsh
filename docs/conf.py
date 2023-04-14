@@ -307,7 +307,7 @@ def make_envvars():
         "-------\n\n"
     )
     for var in vars:
-        title = "$" + var
+        title = f"${var}"
         under = "." * len(title)
         vd = env.get_docs(var)
         s += sec.format(
@@ -359,9 +359,9 @@ def make_xontribs():
         if not isinstance(desc, str):
             desc = "".join(desc)
         pkgname = d.get("package", None)
+        inst = ""
         if pkgname is None:
             pkg = "unknown"
-            inst = ""
             usage = ""
         else:
             pd = md["packages"].get(pkgname, {})
@@ -369,8 +369,7 @@ def make_xontribs():
             if "url" in pd:
                 pkg = "`{0} website <{1}>`_".format(pkg, pd["url"])
             if "license" in pd:
-                pkg = pkg + ", " + pd["license"]
-            inst = ""
+                pkg = f"{pkg}, " + pd["license"]
             installd = pd.get("install", {})
             if pkgname == "xonsh":
                 inst = "This xontrib is preinstalled with xonsh.\n\n"
@@ -388,7 +387,7 @@ def make_xontribs():
                 "on startup.)\n\n"
                 ".. code-block:: xonsh\n\n"
             )
-            usage += "    xontrib load {}\n\n".format(name)
+            usage += f"    xontrib load {name}\n\n"
         s += sec.format(
             low=name.lower(),
             title=title,

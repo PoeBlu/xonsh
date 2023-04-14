@@ -24,13 +24,11 @@ def check_news_file(fname):
     form = ""
     for i, l in enumerate(lines):
         # search the graves
-        if "`" in l:
-            if single_grave_reg.search(l):
-                pytest.fail(
-                    "{}:{}: single grave accents"
-                    " are not valid rst".format(name, i + 1),
-                    pytrace=True,
-                )
+        if "`" in l and single_grave_reg.search(l):
+            pytest.fail(
+                f"{name}:{i + 1}: single grave accents are not valid rst",
+                pytrace=True,
+            )
 
         # determine the form of line
         if l.startswith("**"):
@@ -42,10 +40,7 @@ def check_news_file(fname):
                     "".format(name, i + 1, cat, list(CATEGORIES)),
                     pytrace=True,
                 )
-            if l.endswith("None"):
-                form += "3"
-            else:
-                form += "2"
+            form += "3" if l.endswith("None") else "2"
         elif l.startswith("* <news item>"):
             form += "4"
         elif l.startswith("* ") or l.startswith("- ") or l.startswith("  "):
@@ -53,14 +48,14 @@ def check_news_file(fname):
         elif l.strip() == "":
             form += "0"
         else:
-            pytest.fail("{}:{}: invalid rst".format(name, i + 1), pytrace=True)
+            pytest.fail(f"{name}:{i + 1}: invalid rst", pytrace=True)
     # The file should have:
     #   empty lines around categories
     #   at least one content line in a non null category
     reg = re.compile(r"^(3(0|$)|20(1|4)(1|0|4)*0|204$)+$")
     if not reg.match(form):
         print(form)
-        pytest.fail("{}: invalid rst".format(name), pytrace=True)
+        pytest.fail(f"{name}: invalid rst", pytrace=True)
 
 
 @pytest.mark.parametrize("fname", list(scandir(NEWSDIR)))

@@ -211,9 +211,10 @@ class Preprocessor(object):
         tokens = []
         self.lexer.input(text)
         while True:
-            tok = self.lexer.token()
-            if not tok: break
-            tokens.append(tok)
+            if tok := self.lexer.token():
+                tokens.append(tok)
+            else:
+                break
         return tokens
 
     # ---------------------------------------------------------------------
@@ -264,11 +265,7 @@ class Preprocessor(object):
         # Determine the token type for whitespace--if any
         self.lexer.input("  ")
         tok = self.lexer.token()
-        if not tok or tok.value != "  ":
-            self.t_SPACE = None
-        else:
-            self.t_SPACE = tok.type
-
+        self.t_SPACE = None if not tok or tok.value != "  " else tok.type
         # Determine the token type for newlines
         self.lexer.input("\n")
         tok = self.lexer.token()
@@ -286,7 +283,7 @@ class Preprocessor(object):
             self.lexer.input(c)
             tok = self.lexer.token()
             if not tok or tok.value != c:
-                print("Unable to lex '%s' required for preprocessor" % c)
+                print(f"Unable to lex '{c}' required for preprocessor")
 
     # ----------------------------------------------------------------------
     # add_path()
@@ -473,7 +470,11 @@ class Preprocessor(object):
         str_expansion = {}
         for argnum, i in macro.str_patch:
             if argnum not in str_expansion:
-                str_expansion[argnum] = ('"%s"' % "".join([x.value for x in args[argnum]])).replace("\\","\\\\")
+                str_expansion[
+                    argnum
+                ] = f'"{"".join([x.value for x in args[argnum]])}"'.replace(
+                    "\\", "\\\\"
+                )
             rep[i] = copy.copy(rep[i])
             rep[i].value = str_expansion[argnum]
 
@@ -600,10 +601,7 @@ class Preprocessor(object):
                         j += 1
                         continue
                     elif tokens[j].type == self.t_ID:
-                        if tokens[j].value in self.macros:
-                            result = "1L"
-                        else:
-                            result = "0L"
+                        result = "1L" if tokens[j].value in self.macros else "0L"
                         if not needparen: break
                     elif tokens[j].value == '(':
                         needparen = True

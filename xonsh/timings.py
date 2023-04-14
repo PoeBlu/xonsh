@@ -186,15 +186,11 @@ def timeit_alias(args, stdin=None):
     number = 0
     quiet = False
     repeat = 3
-    precision = 3
     # setup
     ctx = builtins.__xonsh__.ctx
     timer = Timer(timer=clock)
     stmt = " ".join(args)
     innerstr = INNER_TEMPLATE.format(stmt=stmt)
-    # Track compilation time so it can be reported if too long
-    # Minimum time above which compilation time will be reported
-    tc_min = 0.1
     t0 = clock()
     innercode = builtins.compilex(
         innerstr, filename="<xonsh-timeit>", mode="exec", glbs=ctx
@@ -235,11 +231,15 @@ def timeit_alias(args, stdin=None):
                     "is being cached."
                 ).format(worst / best)
             )
+        precision = 3
         print(
             "{0} loops, best of {1}: {2} per loop".format(
                 number, repeat, format_time(best, precision)
             )
         )
+        # Track compilation time so it can be reported if too long
+        # Minimum time above which compilation time will be reported
+        tc_min = 0.1
         if tc > tc_min:
             print("Compiler time: {0:.2f} s".format(tc))
     return

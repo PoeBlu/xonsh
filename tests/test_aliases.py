@@ -18,14 +18,13 @@ def cd(args, stdin=None, **kwargs):
 
 
 def make_aliases():
-    ales = Aliases(
+    return Aliases(
         {"o": ["omg", "lala"]},
         color_ls=["ls", "--color=true"],
         ls="ls '-  -'",
         cd=cd,
         indirect_cd="cd ..",
     )
-    return ales
 
 
 def test_imports(xonsh_execer, xonsh_builtins):

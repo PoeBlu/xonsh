@@ -153,7 +153,6 @@ class Lexer:
         if object:
             newtab = {}
             for key, ritem in self.lexstatere.items():
-                newre = []
                 for cre, findex in ritem:
                     newfindex = []
                     for f in findex:
@@ -161,7 +160,7 @@ class Lexer:
                             newfindex.append(f)
                             continue
                         newfindex.append((getattr(object, f[0].__name__), f[1]))
-                newre.append((cre, newfindex))
+                newre = [(cre, newfindex)]
                 newtab[key] = newre
             c.lexstatere = newtab
             c.lexstateerrorf = {}
@@ -177,7 +176,7 @@ class Lexer:
         if isinstance(lextab, types.ModuleType):
             raise IOError("Won't overwrite existing lextab module")
         basetabmodule = lextab.split('.')[-1]
-        filename = os.path.join(outputdir, basetabmodule) + '.py'
+        filename = f'{os.path.join(outputdir, basetabmodule)}.py'
         with open(filename, 'w') as tf:
             tf.write('# %s.py. This file automatically created by PLY (version %s). Don\'t edit!\n' % (basetabmodule, __version__))
             tf.write('_tabversion   = %s\n' % repr(__tabversion__))
@@ -189,22 +188,29 @@ class Lexer:
             # Rewrite the lexstatere table, replacing function objects with function names
             tabre = {}
             for statename, lre in self.lexstatere.items():
-                titem = []
-                for (pat, func), retext, renames in zip(lre, self.lexstateretext[statename], self.lexstaterenames[statename]):
-                    titem.append((retext, _funcs_to_names(func, renames)))
+                titem = [
+                    (retext, _funcs_to_names(func, renames))
+                    for (pat, func), retext, renames in zip(
+                        lre,
+                        self.lexstateretext[statename],
+                        self.lexstaterenames[statename],
+                    )
+                ]
                 tabre[statename] = titem
 
             tf.write('_lexstatere   = %s\n' % repr(tabre))
             tf.write('_lexstateignore = %s\n' % repr(self.lexstateignore))
 
-            taberr = {}
-            for statename, ef in self.lexstateerrorf.items():
-                taberr[statename] = ef.__name__ if ef else None
+            taberr = {
+                statename: ef.__name__ if ef else None
+                for statename, ef in self.lexstateerrorf.items()
+            }
             tf.write('_lexstateerrorf = %s\n' % repr(taberr))
 
-            tabeof = {}
-            for statename, ef in self.lexstateeoff.items():
-                tabeof[statename] = ef.__name__ if ef else None
+            tabeof = {
+                statename: ef.__name__ if ef else None
+                for statename, ef in self.lexstateeoff.items()
+            }
             tf.write('_lexstateeoff = %s\n' % repr(tabeof))
 
     # ------------------------------------------------------------
@@ -214,7 +220,7 @@ class Lexer:
         if isinstance(tabfile, types.ModuleType):
             lextab = tabfile
         else:
-            exec('import %s' % tabfile)
+            exec(f'import {tabfile}')
             lextab = sys.modules[tabfile]
 
         if getattr(lextab, '_tabversion', '0.0') != __tabversion__:
@@ -229,11 +235,14 @@ class Lexer:
         self.lexstatere     = {}
         self.lexstateretext = {}
         for statename, lre in lextab._lexstatere.items():
-            titem = []
             txtitem = []
-            for pat, func_name in lre:
-                titem.append((re.compile(pat, lextab._lexreflags), _names_to_funcs(func_name, fdict)))
-
+            titem = [
+                (
+                    re.compile(pat, lextab._lexreflags),
+                    _names_to_funcs(func_name, fdict),
+                )
+                for pat, func_name in lre
+            ]
             self.lexstatere[statename] = titem
             self.lexstateretext[statename] = txtitem
 
@@ -358,11 +367,10 @@ class Lexer:
                     break
 
                 # Verify type of the token.  If not in the token map, raise an error
-                if not self.lexoptimize:
-                    if newtok.type not in self.lextokens_all:
-                        raise LexError("%s:%d: Rule '%s' returned an unknown token type '%s'" % (
-                            func.__code__.co_filename, func.__code__.co_firstlineno,
-                            func.__name__, newtok.type), lexdata[lexpos:])
+                if not self.lexoptimize and newtok.type not in self.lextokens_all:
+                    raise LexError("%s:%d: Rule '%s' returned an unknown token type '%s'" % (
+                        func.__code__.co_filename, func.__code__.co_firstlineno,
+                        func.__name__, newtok.type), lexdata[lexpos:])
 
                 return newtok
             else:
@@ -388,7 +396,10 @@ class Lexer:
                     newtok = self.lexerrorf(tok)
                     if lexpos == self.lexpos:
                         # Error method didn't change text position at all. This is an error.
-                        raise LexError("Scanning error. Illegal character '%s'" % (lexdata[lexpos]), lexdata[lexpos:])
+                        raise LexError(
+                            f"Scanning error. Illegal character '{lexdata[lexpos]}'",
+                            lexdata[lexpos:],
+                        )
                     lexpos = self.lexpos
                     if not newtok:
                         continue
@@ -517,7 +528,7 @@ def _form_master_re(relist, reflags, ldict, toknames):
 
         return [(lexre, lexindexfunc)], [regex], [lexindexnames]
     except Exception:
-        m = int(len(relist)/2)
+        m = len(relist) // 2
         if m == 0:
             m = 1
         llist, lre, lnames = _form_master_re(relist[:m], reflags, ldict, toknames)
@@ -538,11 +549,7 @@ def _statetoken(s, names):
         if part not in names and part != 'ANY':
             break
 
-    if i > 1:
-        states = tuple(parts[1:i])
-    else:
-        states = ('INITIAL',)
-
+    states = tuple(parts[1:i]) if i > 1 else ('INITIAL', )
     if 'ANY' in states:
         states = tuple(names)
 
@@ -614,9 +621,7 @@ class LexerReflect(object):
 
     # Get the literals specifier
     def get_literals(self):
-        self.literals = self.ldict.get('literals', '')
-        if not self.literals:
-            self.literals = ''
+        self.literals = self.ldict.get('literals', '') or ''
 
     # Validate literals
     def validate_literals(self):
@@ -648,7 +653,7 @@ class LexerReflect(object):
                         self.log.error('State name %s must be a string', repr(name))
                         self.error = True
                         continue
-                    if not (statetype == 'inclusive' or statetype == 'exclusive'):
+                    if statetype not in ['inclusive', 'exclusive']:
                         self.log.error("State type for state %s must be 'inclusive' or 'exclusive'", name)
                         self.error = True
                         continue
@@ -676,7 +681,7 @@ class LexerReflect(object):
             self.funcsym[s] = []
             self.strsym[s] = []
 
-        if len(tsymbols) == 0:
+        if not tsymbols:
             self.log.error('No rules of the form t_rulename are defined')
             self.error = True
             return
@@ -738,10 +743,7 @@ class LexerReflect(object):
                 self.modules.add(module)
 
                 tokname = self.toknames[fname]
-                if isinstance(f, types.MethodType):
-                    reqargs = 2
-                else:
-                    reqargs = 1
+                reqargs = 2 if isinstance(f, types.MethodType) else 1
                 nargs = f.__code__.co_argcount
                 if nargs > reqargs:
                     self.log.error("%s:%d: Rule '%s' has too many arguments", file, line, f.__name__)
@@ -759,7 +761,7 @@ class LexerReflect(object):
                     continue
 
                 try:
-                    c = re.compile('(?P<%s>%s)' % (fname, _get_regex(f)), self.reflags)
+                    c = re.compile(f'(?P<{fname}>{_get_regex(f)})', self.reflags)
                     if c.match(''):
                         self.log.error("%s:%d: Regular expression for rule '%s' matches empty string", file, line, f.__name__)
                         self.error = True
@@ -783,7 +785,7 @@ class LexerReflect(object):
                     continue
 
                 try:
-                    c = re.compile('(?P<%s>%s)' % (name, r), self.reflags)
+                    c = re.compile(f'(?P<{name}>{r})', self.reflags)
                     if (c.match('')):
                         self.log.error("Regular expression for rule '%s' matches empty string", name)
                         self.error = True
@@ -797,19 +799,14 @@ class LexerReflect(object):
                 self.log.error("No rules defined for state '%s'", state)
                 self.error = True
 
-            # Validate the error function
-            efunc = self.errorf.get(state, None)
-            if efunc:
+            if efunc := self.errorf.get(state, None):
                 f = efunc
                 line = f.__code__.co_firstlineno
                 file = f.__code__.co_filename
                 module = inspect.getmodule(f)
                 self.modules.add(module)
 
-                if isinstance(f, types.MethodType):
-                    reqargs = 2
-                else:
-                    reqargs = 1
+                reqargs = 2 if isinstance(f, types.MethodType) else 1
                 nargs = f.__code__.co_argcount
                 if nargs > reqargs:
                     self.log.error("%s:%d: Rule '%s' has too many arguments", file, line, f.__name__)
@@ -842,18 +839,14 @@ class LexerReflect(object):
         counthash = {}
         linen += 1
         for line in lines:
-            m = fre.match(line)
-            if not m:
-                m = sre.match(line)
-            if m:
+            if m := fre.match(line) or sre.match(line):
                 name = m.group(1)
-                prev = counthash.get(name)
-                if not prev:
-                    counthash[name] = linen
-                else:
+                if prev := counthash.get(name):
                     filename = inspect.getsourcefile(module)
                     self.log.error('%s:%d: Rule %s redefined. Previously defined on line %d', filename, linen, name, prev)
                     self.error = True
+                else:
+                    counthash[name] = linen
             linen += 1
 
 # -----------------------------------------------------------------------------

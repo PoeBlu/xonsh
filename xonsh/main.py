@@ -251,10 +251,7 @@ def _pprint_displayhook(value):
         builtins._ = value
         return
     env = builtins.__xonsh__.env
-    if env.get("PRETTY_PRINT_RESULTS"):
-        printed_val = pretty(value)
-    else:
-        printed_val = repr(value)
+    printed_val = pretty(value) if env.get("PRETTY_PRINT_RESULTS") else repr(value)
     if HAS_PYGMENTS and env.get("COLOR_RESULTS"):
         tokens = list(pygments.lex(printed_val, lexer=pyghooks.XonshLexer()))
         end = "" if env.get("SHELL_TYPE") == "prompt_toolkit2" else "\n"
@@ -384,13 +381,12 @@ def _failback_to_other_shells(args, err):
                 continue
             foreign_shell = line
             break
-    if foreign_shell:
-        traceback.print_exc()
-        print("Xonsh encountered an issue during launch", file=sys.stderr)
-        print("Failback to {}".format(foreign_shell), file=sys.stderr)
-        os.execlp(foreign_shell, foreign_shell)
-    else:
+    if not foreign_shell:
         raise err
+    traceback.print_exc()
+    print("Xonsh encountered an issue during launch", file=sys.stderr)
+    print(f"Failback to {foreign_shell}", file=sys.stderr)
+    os.execlp(foreign_shell, foreign_shell)
 
 
 def main(argv=None):

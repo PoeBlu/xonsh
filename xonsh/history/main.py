@@ -31,7 +31,7 @@ def construct_history(**kwargs):
         return backend
     else:
         print(
-            "Unknown history backend: {}. Using JSON version".format(backend),
+            f"Unknown history backend: {backend}. Using JSON version",
             file=sys.stderr,
         )
         kls_history = JsonHistory
@@ -67,11 +67,10 @@ def _xh_find_histfile_var(file_list, default=None):
                     hist_file = xt.expanduser_abs_path(hist_file)
                     if os.path.isfile(hist_file):
                         return hist_file
-    else:
-        if default:
-            default = xt.expanduser_abs_path(default)
-            if os.path.isfile(default):
-                return default
+    if default:
+        default = xt.expanduser_abs_path(default)
+        if os.path.isfile(default):
+            return default
 
 
 def _xh_bash_hist_parser(location=None, **kwargs):
@@ -160,14 +159,16 @@ def _xh_get_history(
         slices = [xt.ensure_slice(s) for s in slices]
         cmds = xt.get_portions(cmds, slices)
     if start_time or end_time:
-        if start_time is None:
-            start_time = 0.0
-        else:
-            start_time = xt.ensure_timestamp(start_time, datetime_format)
-        if end_time is None:
-            end_time = float("inf")
-        else:
-            end_time = xt.ensure_timestamp(end_time, datetime_format)
+        start_time = (
+            0.0
+            if start_time is None
+            else xt.ensure_timestamp(start_time, datetime_format)
+        )
+        end_time = (
+            float("inf")
+            if end_time is None
+            else xt.ensure_timestamp(end_time, datetime_format)
+        )
         cmds = _xh_filter_ts(cmds, start_time, end_time)
     return cmds
 
@@ -185,30 +186,25 @@ def _xh_show_history(hist, ns, stdout=None, stderr=None):
             datetime_format=ns.datetime_format,
         )
     except Exception as err:
-        print("history: error: {}".format(err), file=stderr)
+        print(f"history: error: {err}", file=stderr)
         return
     if ns.reverse:
         commands = reversed(list(commands))
     end = "\0" if ns.null_byte else "\n"
-    if ns.numerate and ns.timestamp:
-        for c in commands:
+    for c in commands:
+        if ns.numerate and ns.timestamp:
             dt = datetime.datetime.fromtimestamp(c["ts"])
             print(
-                "{}:({}) {}".format(c["ind"], xt.format_datetime(dt), c["inp"]),
+                f'{c["ind"]}:({xt.format_datetime(dt)}) {c["inp"]}',
                 file=stdout,
                 end=end,
             )
-    elif ns.numerate:
-        for c in commands:
-            print("{}: {}".format(c["ind"], c["inp"]), file=stdout, end=end)
-    elif ns.timestamp:
-        for c in commands:
+        elif ns.numerate:
+            print(f'{c["ind"]}: {c["inp"]}', file=stdout, end=end)
+        elif ns.timestamp:
             dt = datetime.datetime.fromtimestamp(c["ts"])
-            print(
-                "({}) {}".format(xt.format_datetime(dt), c["inp"]), file=stdout, end=end
-            )
-    else:
-        for c in commands:
+            print(f'({xt.format_datetime(dt)}) {c["inp"]}', file=stdout, end=end)
+        else:
             print(c["inp"], file=stdout, end=end)
 
 
@@ -284,8 +280,7 @@ def _xh_create_parser():
         choices=_XH_HISTORY_SESSIONS.keys(),
         default="session",
         metavar="session",
-        help="{} (default: current session, all is an alias for xonsh)"
-        "".format(", ".join(map(repr, _XH_HISTORY_SESSIONS.keys()))),
+        help=f'{", ".join(map(repr, _XH_HISTORY_SESSIONS.keys()))} (default: current session, all is an alias for xonsh)',
     )
     show.add_argument(
         "slices",
@@ -364,7 +359,7 @@ def _xh_parse_args(args):
     elif args[0] not in _XH_MAIN_ACTIONS and args[0] not in ("-h", "--help"):
         args = ["show", "session"] + args
     if args[0] == "show":
-        if not any(a in _XH_HISTORY_SESSIONS for a in args):
+        if all(a not in _XH_HISTORY_SESSIONS for a in args):
             args.insert(1, "session")
         ns, slices = parser.parse_known_args(args)
         if slices:
@@ -398,11 +393,11 @@ def history_main(
     elif ns.action == "id":
         if not hist.sessionid:
             return
-        print(str(hist.sessionid), file=stdout)
+        print(hist.sessionid, file=stdout)
     elif ns.action == "file":
         if not hist.filename:
             return
-        print(str(hist.filename), file=stdout)
+        print(hist.filename, file=stdout)
     elif ns.action == "gc":
         hist.run_gc(size=ns.size, blocking=ns.blocking)
     elif ns.action == "diff":
@@ -414,4 +409,4 @@ def history_main(
 
             xrp.replay_main_action(hist, ns, stdout=stdout, stderr=stderr)
     else:
-        print("Unknown history action {}".format(ns.action), file=sys.stderr)
+        print(f"Unknown history action {ns.action}", file=sys.stderr)

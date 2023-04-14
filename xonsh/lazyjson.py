@@ -22,14 +22,14 @@ def _to_json_with_size(obj, offset=0, sort_keys=False):
             s_k, o_k, n_k, size_k = _to_json_with_size(
                 key, offset=j, sort_keys=sort_keys
             )
-            s += s_k + ": "
+            s += f"{s_k}: "
             j += n_k + 2
             s_v, o_v, n_v, size_v = _to_json_with_size(
                 val, offset=j, sort_keys=sort_keys
             )
             o[key] = o_v
             size[key] = size_v
-            s += s_v + ", "
+            s += f"{s_v}, "
             j += n_v + 2
         if s.endswith(", "):
             s = s[:-2]
@@ -46,7 +46,7 @@ def _to_json_with_size(obj, offset=0, sort_keys=False):
             s_x, o_x, n_x, size_x = _to_json_with_size(x, offset=j, sort_keys=sort_keys)
             o.append(o_x)
             size.append(size_x)
-            s += s_x + ", "
+            s += f"{s_x}, "
             j += n_x + 2
         if s.endswith(", "):
             s = s[:-2]
@@ -84,10 +84,9 @@ def dumps(obj, sort_keys=False):
     ilen = len(jdx)
     dloc = iloc + ilen + 11
     dlen = len(data)
-    s = JSON_FORMAT.format(
+    return JSON_FORMAT.format(
         index=jdx, data=data, iloc=iloc, ilen=ilen, dloc=dloc, dlen=dlen
     )
-    return s
 
 
 def ljdump(obj, fp, sort_keys=False):
@@ -177,11 +176,9 @@ class LJNode(cabc.Mapping, cabc.Sequence):
             keys.discard("__total__")
             yield from iter(keys)
         elif self.is_sequence:
-            i = 0
             n = len(self)
-            while i < n:
+            for i in range(n):
                 yield self._load_or_node(self.offsets[i], self.sizes[i])
-                i += 1
         else:
             raise NotImplementedError
 
@@ -214,17 +211,14 @@ class LazyJSON(LJNode):
     def close(self):
         """Close the file handle, if appropriate."""
         if not self.reopen and isinstance(self._f, io.IOBase):
-            try:
+            with contextlib.suppress(OSError):
                 self._f.close()
-            except OSError:
-                pass
 
     @contextlib.contextmanager
     def _open(self, *args, **kwargs):
         if self.reopen and isinstance(self._f, str):
-            f = open(self._f, *args, **kwargs)
-            yield f
-            f.close()
+            with open(self._f, *args, **kwargs) as f:
+                yield f
         else:
             yield self._f
 

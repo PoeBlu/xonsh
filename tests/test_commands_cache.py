@@ -78,19 +78,15 @@ PATTERN_BIN_USING_TTY_OR_NOT = [
 def test_commands_cache_predictor_default(args):
     cc = CommandsCache()
     use_tty, patterns = args
-    f = open("testfile", "wb")
-    where = list(patterns.keys())
-    where.sort()
+    with open("testfile", "wb") as f:
+        where = sorted(patterns.keys())
+        pos = 0
+        for w in where:
+            f.write(b"\x20" * (w - pos))
+            f.write(patterns[w])
+            pos = w + len(patterns[w])
 
-    pos = 0
-    for w in where:
-        f.write(b"\x20" * (w - pos))
-        f.write(patterns[w])
-        pos = w + len(patterns[w])
-
-    f.write(b"\x20" * (pos // 2))
-    f.close()
-
+        f.write(b"\x20" * (pos // 2))
     result = cc.default_predictor_readbin(
         "", os.getcwd() + os.sep + "testfile", timeout=1, failure=None
     )

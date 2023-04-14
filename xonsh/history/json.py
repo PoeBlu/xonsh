@@ -34,8 +34,7 @@ def _xhj_gc_commands_to_rmfiles(hsize, files):
 
 def _xhj_gc_files_to_rmfiles(hsize, files):
     """Return the history files to remove to get under the file limit."""
-    rmfiles = files[:-hsize] if len(files) > hsize else []
-    return rmfiles
+    return files[:-hsize] if len(files) > hsize else []
 
 
 def _xhj_gc_seconds_to_rmfiles(hsize, files):
@@ -60,8 +59,7 @@ def _xhj_gc_bytes_to_rmfiles(hsize, files):
             break
         nbytes += fsize
         n += 1
-    rmfiles = files[:-n]
-    return rmfiles
+    return files[:-n]
 
 
 def _xhj_get_history_files(sort=True, newest_first=False):
@@ -351,11 +349,7 @@ class JsonHistory(History):
         """
         self.buffer.append(cmd)
         self._len += 1  # must come before flushing
-        if len(self.buffer) >= self.buffersize:
-            hf = self.flush()
-        else:
-            hf = None
-        return hf
+        return self.flush() if len(self.buffer) >= self.buffersize else None
 
     def flush(self, at_exit=False):
         """Flushes the current command buffer to disk.

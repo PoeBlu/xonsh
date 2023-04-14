@@ -26,7 +26,7 @@ def test_complete_path(xonsh_builtins):
         "SUGGEST_THRESHOLD": 3,
         "CDPATH": set(),
     }
-    xcp.complete_path("[1-0.1]", "[1-0.1]", 0, 7, dict())
+    xcp.complete_path("[1-0.1]", "[1-0.1]", 0, 7, {})
 
 
 @patch("xonsh.completers.path._add_cdpaths")
@@ -39,5 +39,5 @@ def test_cd_path_no_cd(mock_add_cdpaths, xonsh_builtins):
         "SUGGEST_THRESHOLD": 3,
         "CDPATH": ["/"],
     }
-    xcp.complete_path("a", "cat a", 4, 5, dict())
+    xcp.complete_path("a", "cat a", 4, 5, {})
     mock_add_cdpaths.assert_not_called()

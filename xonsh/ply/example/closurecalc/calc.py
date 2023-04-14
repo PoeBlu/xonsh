@@ -45,7 +45,7 @@ def make_calculator():
         t.lexer.lineno += t.value.count("\n")
 
     def t_error(t):
-        print("Illegal character '%s'" % t.value[0])
+        print(f"Illegal character '{t.value[0]}'")
         t.lexer.skip(1)
 
     # Build the lexer
@@ -99,12 +99,12 @@ def make_calculator():
         try:
             p[0] = variables[p[1]]
         except LookupError:
-            print("Undefined name '%s'" % p[1])
+            print(f"Undefined name '{p[1]}'")
             p[0] = 0
 
     def p_error(p):
         if p:
-            print("Syntax error at '%s'" % p.value)
+            print(f"Syntax error at '{p.value}'")
         else:
             print("Syntax error at EOF")
 
@@ -127,6 +127,5 @@ while True:
         s = raw_input("calc > ")
     except EOFError:
         break
-    r = calc(s)
-    if r:
+    if r := calc(s):
         print(r)

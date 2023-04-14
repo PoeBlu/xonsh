@@ -19,7 +19,7 @@ def test_pwd_tracks_cwd(xonsh_builtins, xonsh_execer, tmpdir_factory, monkeypatc
 
     assert os.getcwd() == cur_wd
 
-    bc.default('os.chdir(r"' + asubdir + '")')
+    bc.default(f'os.chdir(r"{asubdir}")')
 
     assert os.path.abspath(os.getcwd()) == os.path.abspath(asubdir)
     assert os.path.abspath(os.getcwd()) == os.path.abspath(
@@ -34,10 +34,7 @@ def test_pwd_tracks_cwd(xonsh_builtins, xonsh_execer, tmpdir_factory, monkeypatc
 def test_transform(xonsh_builtins):
     @xonsh_builtins.events.on_transform_command
     def spam2egg(cmd, **_):
-        if cmd == "spam":
-            return "egg"
-        else:
-            return cmd
+        return "egg" if cmd == "spam" else cmd
 
     assert transform_command("spam") == "egg"
     assert transform_command("egg") == "egg"

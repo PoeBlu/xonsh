@@ -321,8 +321,7 @@ def parse_env(s):
         return {}
     g1 = m.group(1)
     g1 = g1[:-1] if g1.endswith("\n") else g1
-    env = dict(ENV_SPLIT_RE.findall(g1))
-    return env
+    return dict(ENV_SPLIT_RE.findall(g1))
 
 
 @lazyobject
@@ -363,7 +362,7 @@ def parse_aliases(s, shell, sourcer=None, extra_args=()):
                 value = shlex.split(value)
             else:
                 # alias is more complex, use ExecAlias, but via shell
-                filename = "<foreign-shell-exec-alias:" + key + ">"
+                filename = f"<foreign-shell-exec-alias:{key}>"
                 value = ForeignShellExecAlias(
                     src=value,
                     shell=shell,
@@ -627,9 +626,9 @@ def ensure_shell(shell):
     if "currenv" in shell_keys and not isinstance(shell["currenv"], tuple):
         ce = shell["currenv"]
         if isinstance(ce, cabc.Mapping):
-            ce = tuple([(ensure_string(k), v) for k, v in ce.items()])
+            ce = tuple((ensure_string(k), v) for k, v in ce.items())
         elif isinstance(ce, cabc.Sequence):
-            ce = tuple([(ensure_string(k), v) for k, v in ce])
+            ce = tuple((ensure_string(k), v) for k, v in ce)
         else:
             raise RuntimeError("unrecognized type for currenv")
         shell["currenv"] = ce
@@ -681,7 +680,7 @@ def load_foreign_envs(shells):
         shell = ensure_shell(shell)
         shenv, _ = foreign_shell_data(**shell)
         if shenv:
-            env.update(shenv)
+            env |= shenv
     return env
 
 
@@ -715,5 +714,5 @@ def load_foreign_aliases(shells):
                         "".format(alias, shell["shell"]),
                         file=sys.stderr,
                     )
-        aliases.update(shaliases)
+        aliases |= shaliases
     return aliases

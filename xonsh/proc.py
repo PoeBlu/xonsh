@@ -155,11 +155,10 @@ class QueueReader:
         buf = b""
         while size < 0 or i != size:
             line = self.read_queue()
-            if line:
-                buf += line
-                if line.endswith(nl):
-                    break
-            else:
+            if not line:
+                break
+            buf += line
+            if line.endswith(nl):
                 break
             i += len(line)
         return buf
@@ -180,10 +179,10 @@ class QueueReader:
             return self._read_all_lines()
         lines = []
         while len(lines) != hint:
-            chunk = self.read_queue()
-            if not chunk:
+            if chunk := self.read_queue():
+                lines.extend(chunk.splitlines(keepends=True))
+            else:
                 break
-            lines.extend(chunk.splitlines(keepends=True))
         return lines
 
     def fileno(self):
@@ -198,10 +197,8 @@ class QueueReader:
     def iterqueue(self):
         """Iterates through all remaining chunks in a blocking fashion."""
         while not self.is_fully_read():
-            chunk = self.read_queue()
-            if not chunk:
-                continue
-            yield chunk
+            if chunk := self.read_queue():
+                yield chunk
 
 
 def populate_fd_queue(reader, fd, queue):
@@ -372,20 +369,15 @@ def populate_console(reader, fd, buffer, chunksize, queue, expandsize=None):
         if ((posize[1], posize[0]) <= (y, x) and posize[2:] == (cols, rows)) or (
             pre_x == x and pre_y == y
         ):
-            # already at or ahead of the current cursor position.
             if reader.closed:
                 break
-            else:
-                time.sleep(reader.timeout)
-                continue
+            time.sleep(reader.timeout)
+            continue
         elif max_offset <= offset + expandsize:
             ecb = _expand_console_buffer(cols, max_offset, expandsize, orig_posize, fd)
             rows, max_offset, orig_posize = ecb
             continue
-        elif posize[2:] == (cols, rows):
-            # cursor updated but screen size is the same.
-            pass
-        else:
+        elif posize[2:] != (cols, rows):
             # screen size changed, which is offset preserving
             orig_posize = posize
             cols, rows = posize[2:]
@@ -495,10 +487,11 @@ def safe_fdclose(handle, cache=None):
                 os.close(handle)
             except OSError:
                 status = False
-    elif handle is sys.stdin or handle is sys.stdout or handle is sys.stderr:
-        # don't close stdin, stdout, or stderr
-        pass
-    else:
+    elif (
+        handle is not sys.stdin
+        and handle is not sys.stdout
+        and handle is not sys.stderr
+    ):
         try:
             handle.close()
         except OSError:
@@ -614,14 +607,12 @@ class PopenThread(threading.Thread):
         spec = self._wait_and_getattr("spec")
         # get stdin and apply parallel reader if needed.
         stdin = self.stdin
-        if self.orig_stdin is None:
+        if self.orig_stdin is None or not ON_POSIX or not self.store_stdin:
             origin = None
-        elif ON_POSIX and self.store_stdin:
+        else:
             origin = self.orig_stdin
             origfd = origin if isinstance(origin, int) else origin.fileno()
             origin = BufferedFDParallelReader(origfd, buffer=stdin)
-        else:
-            origin = None
         # get non-blocking stdout
         stdout = self.stdout.buffer if self.universal_newlines else self.stdout
         capout = spec.captured_stdout
@@ -650,9 +641,7 @@ class PopenThread(threading.Thread):
                     procout.timeout = tout
                 if procerr is not None:
                     procerr.timeout = tout
-            elif cnt == 1:
-                pass
-            else:
+            elif cnt != 1:
                 cnt = 1
                 if procout is not None:
                     procout.timeout = self.timeout
@@ -723,13 +712,7 @@ class PopenThread(threading.Thread):
             j = i + len(flag)
             # write the first part of the chunk in the current mode.
             self._alt_mode_writer(chunk[:i], membuf, stdbuf)
-            # switch modes
-            # write the flag itself the current mode where alt mode is on
-            # so that it is streamed to the terminal ASAP.
-            # this is needed for terminal emulators to find the correct
-            # positions before and after alt mode.
-            alt_mode = flag in START_ALTERNATE_MODE
-            if alt_mode:
+            if alt_mode := flag in START_ALTERNATE_MODE:
                 self.in_alt_mode = alt_mode
                 self._alt_mode_writer(flag, membuf, stdbuf)
                 self._enable_cbreak_stdin()
@@ -1260,10 +1243,7 @@ def partial_proxy(f):
     """Dispatches the appropriate proxy function based on the number of args."""
     numargs = 0
     for name, param in inspect.signature(f).parameters.items():
-        if (
-            param.kind == param.POSITIONAL_ONLY
-            or param.kind == param.POSITIONAL_OR_KEYWORD
-        ):
+        if param.kind in [param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD]:
             numargs += 1
         elif name in ALIAS_KWARG_NAMES and param.kind == param.KEYWORD_ONLY:
             numargs += 1
@@ -1441,8 +1421,9 @@ class ProcProxyThread(threading.Thread):
         except SystemExit as e:
             r = e.code if isinstance(e.code, int) else int(bool(e.code))
         except OSError:
-            status = still_writable(self.c2pwrite) and still_writable(self.errwrite)
-            if status:
+            if status := still_writable(self.c2pwrite) and still_writable(
+                self.errwrite
+            ):
                 # stdout and stderr are still writable, so error must
                 # come from function itself.
                 print_exception()
@@ -1525,9 +1506,8 @@ class ProcProxyThread(threading.Thread):
             if on_main_thread():
                 signal.signal(signal.SIGINT, old)
             self.old_int_handler = None
-        if frame is not None:
-            if old is not None and old is not self._signal_int:
-                old(signal.SIGINT, frame)
+        if frame is not None and old is not None and old is not self._signal_int:
+            old(signal.SIGINT, frame)
         if self._interrupted:
             self.returncode = 1
 
@@ -1746,22 +1726,25 @@ class ProcProxy(object):
 
     @staticmethod
     def _pick_buf(handle, sysbuf, enc, err):
-        if handle is None or handle is sysbuf:
-            buf = sysbuf
+        if (
+            handle is not None
+            and handle is not sysbuf
+            and isinstance(handle, int)
+            and handle < 3
+            or handle is None
+            or handle is sysbuf
+        ):
+            return sysbuf
         elif isinstance(handle, int):
-            if handle < 3:
-                buf = sysbuf
-            else:
-                buf = io.TextIOWrapper(
-                    io.open(handle, "wb", -1), encoding=enc, errors=err
-                )
+            return io.TextIOWrapper(
+                io.open(handle, "wb", -1), encoding=enc, errors=err
+            )
         elif hasattr(handle, "encoding"):
             # must be a text stream, no need to wrap.
-            buf = handle
+            return handle
         else:
             # must be a binary stream, should wrap it.
-            buf = io.TextIOWrapper(handle, encoding=enc, errors=err)
-        return buf
+            return io.TextIOWrapper(handle, encoding=enc, errors=err)
 
     def _wait_and_getattr(self, name):
         """make sure the instance has a certain attr, and return it."""
@@ -1780,14 +1763,12 @@ def SIGNAL_MESSAGES():
         signal.SIGSEGV: "Segmentation fault",
     }
     if ON_POSIX:
-        sm.update(
-            {
-                signal.SIGQUIT: "Quit",
-                signal.SIGHUP: "Hangup",
-                signal.SIGKILL: "Killed",
-                signal.SIGTSTP: "Stopped",
-            }
-        )
+        sm |= {
+            signal.SIGQUIT: "Quit",
+            signal.SIGHUP: "Hangup",
+            signal.SIGKILL: "Killed",
+            signal.SIGTSTP: "Stopped",
+        }
     return sm
 
 
@@ -1815,9 +1796,11 @@ def update_fg_process_group(pipeline_group, background):
     if not ON_POSIX:
         return False
     env = builtins.__xonsh__.env
-    if not env.get("XONSH_INTERACTIVE"):
-        return False
-    return give_terminal_to(pipeline_group)
+    return (
+        give_terminal_to(pipeline_group)
+        if env.get("XONSH_INTERACTIVE")
+        else False
+    )
 
 
 class CommandPipeline:
@@ -1906,8 +1889,8 @@ class CommandPipeline:
         self.proc = self.procs[-1]
 
     def __repr__(self):
-        s = self.__class__.__name__ + "("
-        s += ", ".join(a + "=" + str(getattr(self, a)) for a in self.attrnames)
+        s = f"{self.__class__.__name__}("
+        s += ", ".join(f"{a}={str(getattr(self, a))}" for a in self.attrnames)
         s += ")"
         return s
 
@@ -1963,8 +1946,7 @@ class CommandPipeline:
                     self.end(tee_output=False)
                 elif self.captured == "hiddenobject" and stdout:
                     b = stdout.read()
-                    lines = b.splitlines(keepends=True)
-                    yield from lines
+                    yield from b.splitlines(keepends=True)
                     self.end(tee_output=False)
                 elif self.captured == "stdout":
                     b = stdout.read()
@@ -2026,10 +2008,7 @@ class CommandPipeline:
                     # sure we have fully started up, etc.
                     check_prev_done = True
             # this is for CPU usage
-            if i + j == 0:
-                cnt = min(cnt + 1, 1000)
-            else:
-                cnt = 1
+            cnt = min(cnt + 1, 1000) if i + j == 0 else 1
             time.sleep(timeout * cnt)
         # read from process now that it is over
         yield from safe_readlines(stdout)
@@ -2269,8 +2248,7 @@ class CommandPipeline:
         if proc_signal is None:
             return
         sig, core = proc_signal
-        sig_str = SIGNAL_MESSAGES.get(sig)
-        if sig_str:
+        if sig_str := SIGNAL_MESSAGES.get(sig):
             if core:
                 sig_str += " (core dumped)"
             print(sig_str, file=sys.stderr)
@@ -2325,12 +2303,11 @@ class CommandPipeline:
     @property
     def output(self):
         """Non-blocking, lazy access to output"""
-        if self.ended:
-            if self._output is None:
-                self._output = "".join(self.lines)
-            return self._output
-        else:
+        if not self.ended:
             return "".join(self.lines)
+        if self._output is None:
+            self._output = "".join(self.lines)
+        return self._output
 
     @property
     def out(self):
@@ -2353,9 +2330,7 @@ class CommandPipeline:
     def returncode(self):
         """Process return code, waits until command is completed."""
         self.end()
-        if self.proc is None:
-            return 1
-        return self.proc.returncode
+        return 1 if self.proc is None else self.proc.returncode
 
     rtn = returncode
 

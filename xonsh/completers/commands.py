@@ -40,9 +40,7 @@ def complete_skipper(cmd, line, start, end, ctx):
     for i, s in enumerate(parts):
         if s in END_PROC_TOKENS:
             skip_part_num = i + 1
-    while len(parts) > skip_part_num:
-        if parts[skip_part_num] not in SKIP_TOKENS:
-            break
+    while len(parts) > skip_part_num and parts[skip_part_num] in SKIP_TOKENS:
         skip_part_num += 1
 
     if skip_part_num == 0:

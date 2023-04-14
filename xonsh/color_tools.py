@@ -69,25 +69,19 @@ def BASE_XONSH_COLORS():
 @lazyobject
 def RE_XONSH_COLOR():
     hex = "[0-9a-fA-F]"
-    s = (
-        # background
-        r"((?P<background>BACKGROUND_)|(?P<modifiers>("
-        # modifiers, only apply to foreground
-        r"BOLD_|FAINT_|ITALIC_|UNDERLINE_|SLOWBLINK_|FASTBLINK_|INVERT_|CONCEAL_|"
-        r"STRIKETHROUGH_|BOLDOFF_|FAINTOFF_|ITALICOFF_|UNDERLINEOFF_|BLINKOFF_|"
-        r"INVERTOFF_|REVEALOFF_|STRIKETHROUGHOFF_)+))?"
-        # colors
-        r"(?P<color>BLACK|RED|GREEN|YELLOW|BLUE|PURPLE|CYAN|WHITE|INTENSE_BLACK|"
-        r"INTENSE_RED|INTENSE_GREEN|INTENSE_YELLOW|INTENSE_BLUE|INTENSE_PURPLE|"
-        r"INTENSE_CYAN|INTENSE_WHITE|#" + hex + "{3}|#" + hex + "{6})"
-    )
     bghex = (
-        "bg#" + hex + "{3}|"
+        f"bg#{hex}" + "{3}|"
         "bg#" + hex + "{6}|"
         "BG#" + hex + "{3}|"
         "BG#" + hex + "{6}"
     )
-    s = "^((?P<nocolor>NO_COLOR)|(?P<bghex>" + bghex + ")|" + s + ")$"
+    s = (
+        f"((?P<background>BACKGROUND_)|(?P<modifiers>(BOLD_|FAINT_|ITALIC_|UNDERLINE_|SLOWBLINK_|FASTBLINK_|INVERT_|CONCEAL_|STRIKETHROUGH_|BOLDOFF_|FAINTOFF_|ITALICOFF_|UNDERLINEOFF_|BLINKOFF_|INVERTOFF_|REVEALOFF_|STRIKETHROUGHOFF_)+))?(?P<color>BLACK|RED|GREEN|YELLOW|BLUE|PURPLE|CYAN|WHITE|INTENSE_BLACK|INTENSE_RED|INTENSE_GREEN|INTENSE_YELLOW|INTENSE_BLUE|INTENSE_PURPLE|INTENSE_CYAN|INTENSE_WHITE|#{hex}"
+        + "{3}|#"
+        + hex
+        + "{6})"
+    )
+    s = f"^((?P<nocolor>NO_COLOR)|(?P<bghex>{bghex})|{s})$"
     return re.compile(s)
 
 
@@ -425,10 +419,7 @@ def rgb_to_256(rgb):
             if s <= part <= b:
                 s1 = abs(s - part)
                 b1 = abs(b - part)
-                if s1 < b1:
-                    closest = s
-                else:
-                    closest = b
+                closest = s if s1 < b1 else b
                 res.append(closest)
                 break
             i += 1
@@ -452,9 +443,9 @@ def RE_RGB6():
 
 def rgb_to_ints(rgb):
     if len(rgb) == 6:
-        return tuple([int(h, 16) for h in RE_RGB6.split(rgb)[1:4]])
+        return tuple(int(h, 16) for h in RE_RGB6.split(rgb)[1:4])
     else:
-        return tuple([int(h * 2, 16) for h in RE_RGB3.split(rgb)[1:4]])
+        return tuple(int(h * 2, 16) for h in RE_RGB3.split(rgb)[1:4])
 
 
 def short_to_ints(short):

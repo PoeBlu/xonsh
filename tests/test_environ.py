@@ -41,10 +41,7 @@ def test_env_path_list(path):
     assert path == env["MYPATH"].paths
 
 
-@pytest.mark.parametrize(
-    "path",
-    [["/home/wakka" + os.pathsep + "/home/jawaka"], ["wakka" + os.pathsep + "jawaka"]],
-)
+@pytest.mark.parametrize("path", [[f"/home/wakka{os.pathsep}/home/jawaka"], [f"wakka{os.pathsep}jawaka"]])
 def test_env_path_str(path):
     env = Env(MYPATH=path)
     assert path == env["MYPATH"].paths
@@ -52,7 +49,7 @@ def test_env_path_str(path):
 
 def test_env_detype():
     env = Env(MYPATH=["wakka", "jawaka"])
-    assert "wakka" + os.pathsep + "jawaka" == env.detype()["MYPATH"]
+    assert f"wakka{os.pathsep}jawaka" == env.detype()["MYPATH"]
 
 
 @pytest.mark.parametrize(
@@ -218,7 +215,7 @@ def test_event_on_envvar_change_no_fire_when_value_is_same(val, xonsh_builtins):
     # trigger
     env["TEST"] = val
 
-    assert share == []
+    assert not share
 
 
 def test_events_on_envvar_called_in_right_order(xonsh_builtins):

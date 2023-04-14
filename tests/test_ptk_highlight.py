@@ -144,13 +144,12 @@ def test_nested():
 def test_path(tmpdir):
     test_dir = str(tmpdir.mkdir("xonsh-test-highlight-path"))
     check_token(
-        "cd {}".format(test_dir), [(Name.Builtin, "cd"), (Name.Constant, test_dir)]
+        f"cd {test_dir}", [(Name.Builtin, "cd"), (Name.Constant, test_dir)]
     )
     check_token(
-        "cd {}-xxx".format(test_dir),
-        [(Name.Builtin, "cd"), (Text, "{}-xxx".format(test_dir))],
+        f"cd {test_dir}-xxx", [(Name.Builtin, "cd"), (Text, f"{test_dir}-xxx")]
     )
-    check_token("cd X={}".format(test_dir), [(Name.Constant, test_dir)])
+    check_token(f"cd X={test_dir}", [(Name.Constant, test_dir)])
 
     with builtins.__xonsh__.env.swap(AUTO_CD=True):
         check_token(test_dir, [(Name.Constant, test_dir)])

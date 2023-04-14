@@ -397,9 +397,9 @@ class BaseShell(object):
         last_out = hist.last_cmd_out if hist is not None else None
         if last_out is None and tee_out is None:
             pass
-        elif last_out is None and tee_out is not None:
+        elif last_out is None:
             info["out"] = tee_out
-        elif last_out is not None and tee_out is None:
+        elif tee_out is None:
             info["out"] = last_out
         else:
             info["out"] = tee_out + "\n" + last_out
@@ -415,7 +415,7 @@ class BaseShell(object):
         env = builtins.__xonsh__.env
         try:
             cwd = os.getcwd()
-        except (FileNotFoundError, OSError):
+        except OSError:
             cwd = None
         if cwd is None:
             # directory has been deleted out from under us, most likely
@@ -423,13 +423,10 @@ class BaseShell(object):
             if pwd is None:
                 # we have no idea where we are
                 env["PWD"] = "<invalid directory>"
-            elif os.path.isdir(pwd):
-                # unclear why os.getcwd() failed. do nothing.
-                pass
-            else:
+            elif not os.path.isdir(pwd):
                 # OK PWD is really gone.
                 msg = "{UNDERLINE_INTENSE_WHITE}{BACKGROUND_INTENSE_BLACK}"
-                msg += "xonsh: working directory does not exist: " + pwd
+                msg += f"xonsh: working directory does not exist: {pwd}"
                 msg += "{NO_COLOR}"
                 self.print_color(msg, file=sys.stderr)
         elif "PWD" not in env:

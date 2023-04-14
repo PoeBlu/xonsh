@@ -22,15 +22,11 @@ PARENT = os.path.dirname(HERE)
 
 
 def drive_in_use(letter):
-    return ON_WINDOWS and os.system("vol {}: 2>nul>nul".format(letter)) == 0
+    return ON_WINDOWS and os.system(f"vol {letter}: 2>nul>nul") == 0
 
 
 MAX_TEMP_DRIVES = 4
-TEMP_DRIVE = []
-
-for d in "zyxwvuts":
-    if not drive_in_use(d):
-        TEMP_DRIVE.append(d + ":")
+TEMP_DRIVE = [f"{d}:" for d in "zyxwvuts" if not drive_in_use(d)]
 pytestmark = pytest.mark.skipif(
     len(TEMP_DRIVE) < MAX_TEMP_DRIVES,
     reason="Too many drive letters are already used by Windows to run the tests.",
@@ -58,16 +54,14 @@ def shares_setup(tmpdir_factory):
         s,
         d,
         l,
-    ) in (
-        shares
-    ):  # set up some shares on local machine.  dirs already exist test case must invoke wd_setup.
+    ) in shares:  # set up some shares on local machine.  dirs already exist test case must invoke wd_setup.
         rtn = subprocess.call(
             ["NET", "SHARE", s, "/delete"], universal_newlines=True
         )  # clean up from previous run after good, long wait.
         if rtn != 0:
             yield None
             return
-        rtn = subprocess.call(["NET", "SHARE", s + "=" + l], universal_newlines=True)
+        rtn = subprocess.call(["NET", "SHARE", f"{s}={l}"], universal_newlines=True)
         if rtn != 0:
             yield None
             return

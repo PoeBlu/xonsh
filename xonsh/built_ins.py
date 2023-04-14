@@ -181,7 +181,7 @@ RE_SHEBANG = LazyObject(lambda: re.compile(r"#![ \t]*(.+?)$"), globals(), "RE_SH
 
 def _is_binary(fname, limit=80):
     with open(fname, "rb") as f:
-        for i in range(limit):
+        for _ in range(limit):
             char = f.read(1)
             if char == b"\0":
                 return True
@@ -199,9 +199,7 @@ def _un_shebang(x):
         x = os.path.basename(x)
     elif x.endswith("python") or x.endswith("python.exe"):
         x = "python"
-    if x == "xonsh":
-        return ["python", "-m", "xonsh.main"]
-    return [x]
+    return ["python", "-m", "xonsh.main"] if x == "xonsh" else [x]
 
 
 def get_script_subproc_command(fname, args):
@@ -236,10 +234,7 @@ def get_script_subproc_command(fname, args):
         interp = ["xonsh"]
     else:
         interp = m.group(1).strip()
-        if len(interp) > 0:
-            interp = shlex.split(interp)
-        else:
-            interp = ["xonsh"]
+        interp = shlex.split(interp) if len(interp) > 0 else ["xonsh"]
     if ON_WINDOWS:
         o = []
         for i in interp:
@@ -263,14 +258,14 @@ _REDIR_OUT = LazyObject(
 )
 _E2O_MAP = LazyObject(
     lambda: frozenset(
-        {"{}>{}".format(e, o) for e in _REDIR_ERR for o in _REDIR_OUT if o != ""}
+        {f"{e}>{o}" for e in _REDIR_ERR for o in _REDIR_OUT if o != ""}
     ),
     globals(),
     "_E2O_MAP",
 )
 _O2E_MAP = LazyObject(
     lambda: frozenset(
-        {"{}>{}".format(o, e) for e in _REDIR_ERR for o in _REDIR_OUT if o != ""}
+        {f"{o}>{e}" for e in _REDIR_ERR for o in _REDIR_OUT if o != ""}
     ),
     globals(),
     "_O2E_MAP",
@@ -300,10 +295,8 @@ def safe_close(x):
         return
     if x.closed:
         return
-    try:
+    with contextlib.suppress(Exception):
         x.close()
-    except Exception:
-        pass
 
 
 def _parse_redirects(r, loc=None):
@@ -316,7 +309,7 @@ def _parse_redirects(r, loc=None):
             if loc is None:
                 loc, dest = dest, ""  # NOQA
             else:
-                e = "Unrecognized redirection command: {}".format(r)
+                e = f"Unrecognized redirection command: {r}"
                 raise XonshError(e)
         except (ValueError, XonshError):
             raise
@@ -324,9 +317,9 @@ def _parse_redirects(r, loc=None):
             pass
     mode = _MODES.get(mode, None)
     if mode == "r" and (len(orig) > 0 or len(dest) > 0):
-        raise XonshError("Unrecognized redirection command: {}".format(r))
+        raise XonshError(f"Unrecognized redirection command: {r}")
     elif mode in _WRITE_MODES and len(dest) > 0:
-        raise XonshError("Unrecognized redirection command: {}".format(r))
+        raise XonshError(f"Unrecognized redirection command: {r}")
     return orig, mode, dest
 
 
@@ -353,9 +346,9 @@ def _redirect_streams(r, loc=None):
         elif orig in _REDIR_ERR:
             stderr = safe_open(loc, mode)
         else:
-            raise XonshError("Unrecognized redirection command: {}".format(r))
+            raise XonshError(f"Unrecognized redirection command: {r}")
     else:
-        raise XonshError("Unrecognized redirection command: {}".format(r))
+        raise XonshError(f"Unrecognized redirection command: {r}")
     return stdin, stdout, stderr
 
 
@@ -464,16 +457,16 @@ class SubprocSpec:
         self.stack = None
 
     def __str__(self):
-        s = self.__class__.__name__ + "(" + str(self.cmd) + ", "
-        s += self.cls.__name__ + ", "
-        kws = [n + "=" + str(getattr(self, n)) for n in self.kwnames]
+        s = f"{self.__class__.__name__}({str(self.cmd)}, "
+        s += f"{self.cls.__name__}, "
+        kws = [f"{n}={str(getattr(self, n))}" for n in self.kwnames]
         s += ", ".join(kws) + ")"
         return s
 
     def __repr__(self):
-        s = self.__class__.__name__ + "(" + repr(self.cmd) + ", "
-        s += self.cls.__name__ + ", "
-        kws = [n + "=" + repr(getattr(self, n)) for n in self.kwnames]
+        s = f"{self.__class__.__name__}({repr(self.cmd)}, "
+        s += f"{self.cls.__name__}, "
+        kws = [f"{n}={repr(getattr(self, n))}" for n in self.kwnames]
         s += ", ".join(kws) + ")"
         return s
 
@@ -489,9 +482,7 @@ class SubprocSpec:
     def stdin(self, value):
         if self._stdin is None:
             self._stdin = value
-        elif value is None:
-            pass
-        else:
+        elif value is not None:
             safe_close(value)
             msg = "Multiple inputs for stdin for {0!r}"
             msg = msg.format(" ".join(self.args))
@@ -505,9 +496,7 @@ class SubprocSpec:
     def stdout(self, value):
         if self._stdout is None:
             self._stdout = value
-        elif value is None:
-            pass
-        else:
+        elif value is not None:
             safe_close(value)
             msg = "Multiple redirections for stdout for {0!r}"
             msg = msg.format(" ".join(self.args))
@@ -521,9 +510,7 @@ class SubprocSpec:
     def stderr(self, value):
         if self._stderr is None:
             self._stderr = value
-        elif value is None:
-            pass
-        else:
+        elif value is not None:
             safe_close(value)
             msg = "Multiple redirections for stderr for {0!r}"
             msg = msg.format(" ".join(self.args))
@@ -624,13 +611,13 @@ class SubprocSpec:
             return os.path.basename(self.binary_loc)
 
     def _pre_run_event_fire(self, name):
-        event_name = "on_pre_spec_run_" + name
+        event_name = f"on_pre_spec_run_{name}"
         if events.exists(event_name):
             event = getattr(events, event_name)
             event.fire(spec=self)
 
     def _post_run_event_fire(self, name, proc):
-        event_name = "on_post_spec_run_" + name
+        event_name = f"on_post_spec_run_{name}"
         if events.exists(event_name):
             event = getattr(events, event_name)
             event.fire(spec=self, proc=proc)
@@ -684,10 +671,7 @@ class SubprocSpec:
     def resolve_alias(self):
         """Sets alias in command, if applicable."""
         cmd0 = self.cmd[0]
-        if callable(cmd0):
-            alias = cmd0
-        else:
-            alias = builtins.aliases.get(cmd0, None)
+        alias = cmd0 if callable(cmd0) else builtins.aliases.get(cmd0, None)
         self.alias = alias
 
     def resolve_binary_loc(self):
@@ -802,21 +786,19 @@ def _update_last_spec(last):
     if not captured:
         return
     callable_alias = callable(last.alias)
-    if callable_alias:
-        pass
-    else:
+    if not callable_alias:
         cmds_cache = builtins.__xonsh__.commands_cache
         thable = (
             env.get("THREAD_SUBPROCS")
             and cmds_cache.predict_threadable(last.args)
             and cmds_cache.predict_threadable(last.cmd)
         )
-        if captured and thable:
+        if thable:
             last.cls = PopenThread
-        elif not thable:
+        else:
             # foreground processes should use Popen
             last.threadable = False
-            if captured == "object" or captured == "hiddenobject":
+            if captured in ["object", "hiddenobject"]:
                 # CommandPipeline objects should not pipe stdout, stderr
                 return
     # cannot used PTY pipes for aliases, for some dark reason,
@@ -993,8 +975,7 @@ def subproc_captured_inject(*cmds):
     or shlex.split().
     """
     s = run_subproc(cmds, captured="stdout")
-    toks = builtins.__xonsh__.execer.parser.lexer.split(s.strip())
-    return toks
+    return builtins.__xonsh__.execer.parser.lexer.split(s.strip())
 
 
 def subproc_captured_object(*cmds):
@@ -1022,23 +1003,21 @@ def subproc_uncaptured(*cmds):
 def ensure_list_of_strs(x):
     """Ensures that x is a list of strings."""
     if isinstance(x, str):
-        rtn = [x]
+        return [x]
     elif isinstance(x, cabc.Sequence):
-        rtn = [i if isinstance(i, str) else str(i) for i in x]
+        return [i if isinstance(i, str) else str(i) for i in x]
     else:
-        rtn = [str(x)]
-    return rtn
+        return [str(x)]
 
 
 def list_of_strs_or_callables(x):
     """Ensures that x is a list of strings or functions"""
     if isinstance(x, str) or callable(x):
-        rtn = [x]
+        return [x]
     elif isinstance(x, cabc.Iterable):
-        rtn = [i if isinstance(i, str) or callable(i) else str(i) for i in x]
+        return [i if isinstance(i, str) or callable(i) else str(i) for i in x]
     else:
-        rtn = [str(x)]
-    return rtn
+        return [str(x)]
 
 
 def list_of_list_of_strs_outer_product(x):
@@ -1116,7 +1095,7 @@ def convert_macro_arg(raw_arg, kind, glbs, locs, *, name="<arg>", macroname="<ma
         return raw_arg  # short circuit since there is nothing else to do
     # select from kind and convert
     execer = builtins.__xonsh__.execer
-    filename = macroname + "(" + name + ")"
+    filename = f"{macroname}({name})"
     if kind is AST:
         ctx = set(dir(builtins)) | set(glbs.keys())
         if locs is not None:
@@ -1231,16 +1210,16 @@ def _eval_regular_args(raw_args, glbs, locs):
     execer = builtins.__xonsh__.execer
     if not arglist:
         args = arglist
-        kwargstr = "dict({})".format(", ".join(kwarglist))
+        kwargstr = f'dict({", ".join(kwarglist)})'
         kwargs = execer.eval(kwargstr, glbs=glbs, locs=locs)
     elif not kwarglist:
-        argstr = "({},)".format(", ".join(arglist))
+        argstr = f'({", ".join(arglist)},)'
         args = execer.eval(argstr, glbs=glbs, locs=locs)
         kwargs = {}
     else:
-        argstr = "({},)".format(", ".join(arglist))
-        kwargstr = "dict({})".format(", ".join(kwarglist))
-        both = "({}, {})".format(argstr, kwargstr)
+        argstr = f'({", ".join(arglist)},)'
+        kwargstr = f'dict({", ".join(kwarglist)})'
+        both = f"({argstr}, {kwargstr})"
         args, kwargs = execer.eval(both, glbs=glbs, locs=locs)
     return args, kwargs
 
@@ -1300,9 +1279,11 @@ def load_builtins(execer=None, ctx=None):
 
 
 def _lastflush(s=None, f=None):
-    if hasattr(builtins, "__xonsh__"):
-        if builtins.__xonsh__.history is not None:
-            builtins.__xonsh__.history.flush(at_exit=True)
+    if (
+        hasattr(builtins, "__xonsh__")
+        and builtins.__xonsh__.history is not None
+    ):
+        builtins.__xonsh__.history.flush(at_exit=True)
 
 
 def unload_builtins():

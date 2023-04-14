@@ -42,7 +42,7 @@ def bind(socket, connection, port):
     if port <= 0:
         return socket.bind_to_random_port(connection)
     else:
-        socket.bind("{}:{}".format(connection, port))
+        socket.bind(f"{connection}:{port}")
     return port
 
 
@@ -196,7 +196,7 @@ class XonshKernel:
     def dprint(self, level, *args, **kwargs):
         """Print but with debug information."""
         if level <= self.debug_level:
-            print("DEBUG" + str(level) + ":", file=sys.__stdout__, *args, **kwargs)
+            print(f"DEBUG{str(level)}:", file=sys.__stdout__, *args, **kwargs)
             sys.__stdout__.flush()
 
     def sign(self, messages):
@@ -263,23 +263,23 @@ class XonshKernel:
         """Run main thread"""
         self.dprint(2, "Starting loop for {name!r}...".format(name=name))
         while not self.exiting:
-            self.dprint(2, "{} Loop!".format(name))
+            self.dprint(2, f"{name} Loop!")
             try:
                 loop.start()
             except ZMQError as e:
-                self.dprint(1, "{} ZMQError!\n  {}".format(name, e))
+                self.dprint(1, f"{name} ZMQError!\n  {e}")
                 if e.errno == errno.EINTR:
                     continue
                 else:
                     raise
             except Exception:
-                self.dprint(2, "{} Exception!".format(name))
+                self.dprint(2, f"{name} Exception!")
                 if self.exiting:
                     break
                 else:
                     raise
             else:
-                self.dprint(2, "{} Break!".format(name))
+                self.dprint(2, f"{name} Break!")
                 break
 
     def heartbeat_loop(self):
@@ -375,22 +375,22 @@ class XonshKernel:
             return {"status": "abort", "execution_count": self.execution_count}
 
         rtn = 0 if (hist is None or len(hist) == 0) else hist.rtns[-1]
-        if 0 < rtn:
-            message = {
+        return (
+            {
                 "status": "error",
                 "execution_count": self.execution_count,
                 "ename": "",
                 "evalue": str(rtn),
                 "traceback": [],
             }
-        else:
-            message = {
+            if rtn > 0
+            else {
                 "status": "ok",
                 "execution_count": self.execution_count,
                 "payload": [],
                 "user_expressions": {},
             }
-        return message
+        )
 
     def _respond_in_chunks(self, name, s, chunksize=1024, parent_header=None):
         if s is None:
@@ -430,14 +430,13 @@ class XonshKernel:
         rtn, _ = self.completer.complete(prefix, line, begidx, endidx, shell.ctx)
         if isinstance(rtn, Set):
             rtn = list(rtn)
-        message = {
+        return {
             "matches": rtn,
             "cursor_start": begidx,
             "cursor_end": endidx,
             "metadata": {},
             "status": "ok",
         }
-        return message
 
     def handle_kernel_info_request(self, message, identities):
         """Handles kernel info requests."""

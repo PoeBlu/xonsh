@@ -44,13 +44,12 @@ def complete_pip(prefix, line, begidx, endidx, ctx):
         except FileNotFoundError:
             return set()
         items = items.decode("utf-8").splitlines()
-        return set(i.split()[0] for i in items if i.split()[0].startswith(prefix))
+        return {i.split()[0] for i in items if i.split()[0].startswith(prefix)}
 
     if (line_len > 1 and line.endswith(" ")) or line_len > 2:
         # "pip show " -> no complete (note space)
         return
     if prefix not in ALL_COMMANDS:
-        suggestions = [c for c in ALL_COMMANDS if c.startswith(prefix)]
-        if suggestions:
+        if suggestions := [c for c in ALL_COMMANDS if c.startswith(prefix)]:
             return suggestions, len(prefix)
     return ALL_COMMANDS, len(prefix)

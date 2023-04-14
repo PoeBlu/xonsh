@@ -147,13 +147,12 @@ def _find_caller(args):
             # will actually return the 2nd line in the code_context field, even though
             # line number is itself correct. We manually fix that in this branch.
             return fname
-    else:
-        msg = (
-            "xonsh: warning: __file__ name could not be found. You may be "
-            "trying to trace interactively. Please pass in the file names "
-            "you want to trace explicitly."
-        )
-        print(msg, file=sys.stderr)
+    msg = (
+        "xonsh: warning: __file__ name could not be found. You may be "
+        "trying to trace interactively. Please pass in the file names "
+        "you want to trace explicitly."
+    )
+    print(msg, file=sys.stderr)
 
 
 def _on(ns, args):

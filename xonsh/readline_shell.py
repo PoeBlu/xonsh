@@ -146,10 +146,7 @@ def setup_readline():
     # try to load custom user settings
     inputrc_name = os_environ.get("INPUTRC")
     if inputrc_name is None:
-        if uses_libedit:
-            inputrc_name = ".editrc"
-        else:
-            inputrc_name = ".inputrc"
+        inputrc_name = ".editrc" if uses_libedit else ".inputrc"
         inputrc_name = os.path.join(os.path.expanduser("~"), inputrc_name)
     if (not ON_WINDOWS) and (not os.path.isfile(inputrc_name)):
         inputrc_name = "/etc/inputrc"
@@ -371,8 +368,10 @@ class ReadlineShell(BaseShell, cmd.Cmd):
             return 1
         elif len(completions) <= builtins.__xonsh__.env.get("COMPLETION_QUERY_LIMIT"):
             return 2
-        msg = "\nDisplay all {} possibilities? ".format(len(completions))
-        msg += "({GREEN}y{NO_COLOR} or {RED}n{NO_COLOR})"
+        msg = (
+            f"\nDisplay all {len(completions)} possibilities? "
+            + "({GREEN}y{NO_COLOR} or {RED}n{NO_COLOR})"
+        )
         self.print_color(msg, end="", flush=True, file=sys.stderr)
         yn = "x"
         while yn not in "yn":
@@ -412,8 +411,7 @@ class ReadlineShell(BaseShell, cmd.Cmd):
         completions, l = self.completer.complete(
             prefix, line, begidx, endidx, ctx=self.ctx
         )
-        chopped = prefix[:-l]
-        if chopped:
+        if chopped := prefix[:-l]:
             rtn_completions = [chopped + i for i in completions]
         else:
             rtn_completions = completions
@@ -505,7 +503,7 @@ class ReadlineShell(BaseShell, cmd.Cmd):
 
                 self.old_completer = readline.get_completer()
                 readline.set_completer(self.complete)
-                readline.parse_and_bind(self.completekey + ": complete")
+                readline.parse_and_bind(f"{self.completekey}: complete")
                 have_readline = True
             except ImportError:
                 have_readline = False
@@ -543,10 +541,7 @@ class ReadlineShell(BaseShell, cmd.Cmd):
                         os.write(self.stdin.fileno(), line.encode())
                     if not exec_now:
                         line = self.stdin.readline()
-                    if len(line) == 0:
-                        line = "EOF"
-                    else:
-                        line = line.rstrip("\r\n")
+                    line = "EOF" if len(line) == 0 else line.rstrip("\r\n")
                     if have_readline and line != "EOF":
                         readline.add_history(line)
                 if not ON_WINDOWS:
@@ -652,7 +647,7 @@ class ReadlineShell(BaseShell, cmd.Cmd):
         # under the covers. This effectively hides the true TTY stdin handle
         # from stty. To get around this we have to use the lower level
         # os.system() function.
-        os.system(stty + " sane")
+        os.system(f"{stty} sane")
 
 
 class ReadlineHistoryAdder(threading.Thread):

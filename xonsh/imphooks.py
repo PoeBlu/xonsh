@@ -38,9 +38,7 @@ def find_source_encoding(src):
         return m.group(1).decode(utf8)
     second, _, _ = rest.partition(b"\n")
     m = ENCODING_LINE.match(second)
-    if m is not None:
-        return m.group(1).decode(utf8)
-    return utf8
+    return m.group(1).decode(utf8) if m is not None else utf8
 
 
 class XonshImportHook(MetaPathFinder, SourceLoader):
@@ -78,7 +76,7 @@ class XonshImportHook(MetaPathFinder, SourceLoader):
         if dot not in fullname and dot not in path:
             path = [dot] + path
         name = fullname.rsplit(dot, 1)[-1]
-        fname = name + ".xsh"
+        fname = f"{name}.xsh"
         for p in path:
             if not isinstance(p, str):
                 continue
@@ -120,8 +118,7 @@ class XonshImportHook(MetaPathFinder, SourceLoader):
         execer = self.execer
         execer.filename = filename
         ctx = {}  # dummy for modules
-        code = execer.compile(src, glbs=ctx, locs=ctx)
-        return code
+        return execer.compile(src, glbs=ctx, locs=ctx)
 
     def get_source(self, fullpath):
         if fullpath is None:

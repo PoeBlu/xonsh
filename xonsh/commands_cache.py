@@ -60,16 +60,15 @@ class CommandsCache(cabc.Mapping):
         """Generates the possible `PATHEXT` extension variants of a given executable
          name on Windows as a list, conserving the ordering in `PATHEXT`.
          Returns a list as `name` being the only item in it on other platforms."""
-        if ON_WINDOWS:
-            pathext = builtins.__xonsh__.env.get("PATHEXT", [])
-            name = name.upper()
-            return [name + ext for ext in ([""] + pathext)]
-        else:
+        if not ON_WINDOWS:
             return [name]
+        pathext = builtins.__xonsh__.env.get("PATHEXT", [])
+        name = name.upper()
+        return [name + ext for ext in ([""] + pathext)]
 
     @staticmethod
     def remove_dups(p):
-        ret = list()
+        ret = []
         for e in p:
             if e not in ret:
                 ret.append(e)
@@ -85,7 +84,7 @@ class CommandsCache(cabc.Mapping):
         cache_valid = path_hash == self._path_checksum
         self._path_checksum = path_hash
         # did aliases change?
-        alss = getattr(builtins, "aliases", dict())
+        alss = getattr(builtins, "aliases", {})
         al_hash = hash(frozenset(alss))
         cache_valid = cache_valid and al_hash == self._alias_checksum
         self._alias_checksum = al_hash
@@ -176,20 +175,16 @@ class CommandsCache(cabc.Mapping):
         """
         possibilities = self.get_possible_names(name)
         if ON_WINDOWS:
-            # Windows users expect to be able to execute files in the same
-            # directory without `./`
-            local_bin = next((fn for fn in possibilities if os.path.isfile(fn)), None)
-            if local_bin:
+            if local_bin := next(
+                (fn for fn in possibilities if os.path.isfile(fn)), None
+            ):
                 return os.path.abspath(local_bin)
-        cached = next((cmd for cmd in possibilities if cmd in self._cmds_cache), None)
-        if cached:
+        if cached := next(
+            (cmd for cmd in possibilities if cmd in self._cmds_cache), None
+        ):
             (path, alias) = self._cmds_cache[cached]
             ispure = path == pathbasename(path)
-            if alias and ignore_alias and ispure:
-                # pure alias, which we are ignoring
-                return None
-            else:
-                return path
+            return None if alias and ignore_alias and ispure else path
         elif os.path.isfile(name) and name != pathbasename(name):
             return name
 
@@ -240,8 +235,7 @@ class CommandsCache(cabc.Mapping):
                     predictors[name] = predictors[pre]
         if name not in predictors:
             predictors[name] = self.default_predictor(name, cmd0)
-        predictor = predictors[name]
-        return predictor
+        return predictors[name]
 
     #
     # Background Predictors (as methods)
@@ -254,7 +248,7 @@ class CommandsCache(cabc.Mapping):
         """
         # alias stuff
         if not os.path.isabs(cmd0) and os.sep not in cmd0:
-            alss = getattr(builtins, "aliases", dict())
+            alss = getattr(builtins, "aliases", {})
             if cmd0 in alss:
                 return self.default_predictor_alias(cmd0)
 
@@ -271,7 +265,7 @@ class CommandsCache(cabc.Mapping):
             10
         )  # this limit is se to handle infinite loops in aliases definition
         first_args = []  # contains in reverse order args passed to the aliased command
-        alss = getattr(builtins, "aliases", dict())
+        alss = getattr(builtins, "aliases", {})
         while cmd0 in alss:
             alias_name = alss[cmd0]
             if isinstance(alias_name, (str, bytes)) or not isinstance(
@@ -370,11 +364,7 @@ def predict_shell(args):
     comes down to whether it is being run in subproc mode.
     """
     ns, _ = SHELL_PREDICTOR_PARSER.parse_known_args(args)
-    if ns.c is None and ns.filename is None:
-        pred = False
-    else:
-        pred = True
-    return pred
+    return ns.c is not None or ns.filename is not None
 
 
 @lazyobject
@@ -396,8 +386,7 @@ def predict_help_ver(args):
     but may not in certain circumstances.
     """
     ns, _ = HELP_VER_PREDICTOR_PARSER.parse_known_args(args)
-    pred = ns.help is not None or ns.version is not None
-    return pred
+    return ns.help is not None or ns.version is not None
 
 
 @lazyobject
@@ -416,10 +405,7 @@ def predict_hg(args):
     Also predict False for certain commands, such as split.
     """
     ns, _ = HG_PREDICTOR_PARSER.parse_known_args(args)
-    if ns.command == "split":
-        return False
-    else:
-        return not ns.interactive
+    return False if ns.command == "split" else not ns.interactive
 
 
 def predict_env(args):
@@ -427,20 +413,21 @@ def predict_env(args):
     The launched command is extracted from env args, and the predictor of
     lauched command is used."""
 
-    for i in range(len(args)):
-        if args[i] and args[i][0] != "-" and "=" not in args[i]:
-            # args[i] is the command and the following is its arguments
-            # so args[i:] is used to predict if the command is threadable
-            return builtins.__xonsh__.commands_cache.predict_threadable(args[i:])
-    return True
+    return next(
+        (
+            builtins.__xonsh__.commands_cache.predict_threadable(args[i:])
+            for i in range(len(args))
+            if args[i] and args[i][0] != "-" and "=" not in args[i]
+        ),
+        True,
+    )
 
 
 def default_threadable_predictors():
     """Generates a new defaultdict for known threadable predictors.
     The default is to predict true.
     """
-    # alphabetical, for what it is worth.
-    predictors = {
+    return {
         "asciinema": predict_help_ver,
         "aurman": predict_false,
         "awk": predict_true,
@@ -515,4 +502,3 @@ def default_threadable_predictors():
         "zipinfo": predict_true,
         "zsh": predict_shell,
     }
-    return predictors

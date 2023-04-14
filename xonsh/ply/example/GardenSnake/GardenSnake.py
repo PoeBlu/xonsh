@@ -119,7 +119,6 @@ def t_NAME(t):
 
 def t_comment(t):
     r"[ ]*\043[^\n]*"  # \043 is '#'
-    pass
 
 
 # Whitespace
@@ -206,10 +205,7 @@ def track_tokens_filter(lexer, tokens):
 
         else:
             # A real token; only indent after COLON NEWLINE
-            if indent == MUST_INDENT:
-                token.must_indent = True
-            else:
-                token.must_indent = False
+            token.must_indent = indent == MUST_INDENT
             at_line_start = False
             indent = NO_INDENT
 
@@ -317,16 +313,12 @@ def indentation_filter(tokens):
 # The top-level filter adds an ENDMARKER, if requested.
 # Python's grammar uses it.
 def filter(lexer, add_endmarker=True):
-    token = None
     tokens = iter(lexer.token, None)
     tokens = track_tokens_filter(lexer, tokens)
-    for token in indentation_filter(tokens):
-        yield token
-
+    yield from indentation_filter(tokens)
     if add_endmarker:
-        lineno = 1
-        if token is not None:
-            lineno = token.lineno
+        token = None
+        lineno = token.lineno if token is not None else 1
         yield _new_token("ENDMARKER", lineno)
 
 # Combine Ply and my filters into a new lexer
@@ -394,15 +386,9 @@ def p_file_input(p):
                   | NEWLINE
                   | stmt"""
     if isinstance(p[len(p) - 1], basestring):
-        if len(p) == 3:
-            p[0] = p[1]
-        else:
-            p[0] = []  # p == 2 --> only a blank line
+        p[0] = p[1] if len(p) == 3 else []
     else:
-        if len(p) == 3:
-            p[0] = p[1] + p[2]
-        else:
-            p[0] = p[1]
+        p[0] = p[1] + p[2] if len(p) == 3 else p[1]
 
 
 # funcdef: [decorators] 'def' NAME parameters ':' suite
@@ -417,10 +403,7 @@ def p_funcdef(p):
 def p_parameters(p):
     """parameters : LPAR RPAR
                   | LPAR varargslist RPAR"""
-    if len(p) == 3:
-        p[0] = []
-    else:
-        p[0] = p[2]
+    p[0] = [] if len(p) == 3 else p[2]
 
 
 # varargslist: (fpdef ['=' test] ',')* ('*' NAME [',' '**' NAME] | '**' NAME) |
@@ -428,10 +411,7 @@ def p_parameters(p):
 def p_varargslist(p):
     """varargslist : varargslist COMMA NAME
                    | NAME"""
-    if len(p) == 4:
-        p[0] = p[1] + p[3]
-    else:
-        p[0] = [p[1]]
+    p[0] = p[1] + p[3] if len(p) == 4 else [p[1]]
 
 # stmt: simple_stmt | compound_stmt
 
@@ -458,10 +438,7 @@ def p_simple_stmt(p):
 def p_small_stmts(p):
     """small_stmts : small_stmts SEMICOLON small_stmt
                    | small_stmt"""
-    if len(p) == 4:
-        p[0] = p[1] + [p[3]]
-    else:
-        p[0] = [p[1]]
+    p[0] = p[1] + [p[3]] if len(p) == 4 else [p[1]]
 
 # small_stmt: expr_stmt | print_stmt  | del_stmt | pass_stmt | flow_stmt |
 #    import_stmt | global_stmt | exec_stmt | assert_stmt
@@ -481,11 +458,7 @@ def p_small_stmt(p):
 def p_expr_stmt(p):
     """expr_stmt : testlist ASSIGN testlist
                  | testlist """
-    if len(p) == 2:
-        # a list of expressions
-        p[0] = ast.Discard(p[1])
-    else:
-        p[0] = Assign(p[1], p[3])
+    p[0] = ast.Discard(p[1]) if len(p) == 2 else Assign(p[1], p[3])
 
 
 def p_flow_stmt(p):
@@ -514,19 +487,13 @@ def p_if_stmt(p):
 def p_suite(p):
     """suite : simple_stmt
              | NEWLINE INDENT stmts DEDENT"""
-    if len(p) == 2:
-        p[0] = ast.Stmt(p[1])
-    else:
-        p[0] = ast.Stmt(p[3])
+    p[0] = ast.Stmt(p[1]) if len(p) == 2 else ast.Stmt(p[3])
 
 
 def p_stmts(p):
     """stmts : stmts stmt
              | stmt"""
-    if len(p) == 3:
-        p[0] = p[1] + p[2]
-    else:
-        p[0] = p[1]
+    p[0] = p[1] + p[2] if len(p) == 3 else p[1]
 
 # No using Python's approach because Ply supports precedence
 
@@ -597,11 +564,10 @@ def p_power(p):
              | atom trailer"""
     if len(p) == 2:
         p[0] = p[1]
+    elif p[2][0] == "CALL":
+        p[0] = ast.CallFunc(p[1], p[2][1], None, None)
     else:
-        if p[2][0] == "CALL":
-            p[0] = ast.CallFunc(p[1], p[2][1], None, None)
-        else:
-            raise AssertionError("not implemented")
+        raise AssertionError("not implemented")
 
 
 def p_atom_name(p):
@@ -633,14 +599,10 @@ def p_trailer(p):
 def p_testlist(p):
     """testlist : testlist_multi COMMA
                 | testlist_multi """
-    if len(p) == 2:
+    if len(p) != 2 and isinstance(p[1], list) or len(p) == 2:
         p[0] = p[1]
     else:
-        # May need to promote singleton to tuple
-        if isinstance(p[1], list):
-            p[0] = p[1]
-        else:
-            p[0] = [p[1]]
+        p[0] = [p[1]]
     # Convert into a tuple?
     if isinstance(p[0], list):
         p[0] = ast.Tuple(p[0])
@@ -653,11 +615,7 @@ def p_testlist_multi(p):
         # singleton
         p[0] = p[1]
     else:
-        if isinstance(p[1], list):
-            p[0] = p[1] + [p[3]]
-        else:
-            # singleton -> tuple
-            p[0] = [p[1], p[3]]
+        p[0] = p[1] + [p[3]] if isinstance(p[1], list) else [p[1], p[3]]
 
 
 # test: or_test ['if' or_test 'else' test] | lambdef
@@ -672,10 +630,7 @@ def p_test(p):
 def p_arglist(p):
     """arglist : arglist COMMA argument
                | argument"""
-    if len(p) == 4:
-        p[0] = p[1] + [p[3]]
-    else:
-        p[0] = [p[1]]
+    p[0] = p[1] + [p[3]] if len(p) == 4 else [p[1]]
 
 # argument: test [gen_for] | test '=' test  # Really [keyword '='] test
 

@@ -60,12 +60,11 @@ def _remove_completer(args, stdin=None, stack=None):
     else:
         name = args[0]
         if name not in builtins.__xonsh__.completers:
-            err = ("The name %s is not a registered " "completer function.") % name
-    if err is None:
-        del builtins.__xonsh__.completers[name]
-        return
-    else:
+            err = f"The name {name} is not a registered completer function."
+    if err is not None:
         return None, err + "\n", 1
+    del builtins.__xonsh__.completers[name]
+    return
 
 
 def _register_completer(args, stdin=None, stack=None):
@@ -77,14 +76,14 @@ def _register_completer(args, stdin=None, stack=None):
         )
     else:
         name = args[0]
-        func_name = args[1]
         if name in builtins.__xonsh__.completers:
-            err = ("The name %s is already a registered " "completer function.") % name
+            err = f"The name {name} is already a registered completer function."
         else:
+            func_name = args[1]
             if func_name in builtins.__xonsh__.ctx:
                 func = builtins.__xonsh__.ctx[func_name]
                 if not callable(func):
-                    err = "%s is not callable" % func_name
+                    err = f"{func_name} is not callable"
             else:
                 for frame_info in stack:
                     frame = frame_info[0]
@@ -95,12 +94,11 @@ def _register_completer(args, stdin=None, stack=None):
                         func = frame.f_globals[func_name]
                         break
                 else:
-                    err = "No such function: %s" % func_name
-    if err is None:
-        position = "start" if len(args) == 2 else args[2]
-        _add_one_completer(name, func, position)
-    else:
+                    err = f"No such function: {func_name}"
+    if err is not None:
         return None, err + "\n", 1
+    position = "start" if len(args) == 2 else args[2]
+    _add_one_completer(name, func, position)
 
 
 def completer_alias(args, stdin=None, stdout=None, stderr=None, spec=None, stack=None):

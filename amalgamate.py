@@ -72,7 +72,7 @@ class GlobalNames(object):
             if len(val) < 2:
                 continue
             val = sorted(val)
-            if all([val[0][0] == x[0] for x in val[1:]]):
+            if all(val[0][0] == x[0] for x in val[1:]):
                 continue
             s += "WARNING: {0!r} defined in multiple locations:\n".format(key)
             for loc in val:
@@ -84,22 +84,22 @@ class GlobalNames(object):
         if name.startswith("__"):
             return
         topnode = self.topnode
-        e = (self.pkg + "." + self.module, lineno, topnode)
+        e = f"{self.pkg}.{self.module}", lineno, topnode
         if name in self.cache:
             if topnode in self.impnodes and all(
-                [topnode == x[2] for x in self.cache[name]]
+                topnode == x[2] for x in self.cache[name]
             ):
                 return
             self.cache[name].add(e)
         else:
-            self.cache[name] = set([e])
+            self.cache[name] = {e}
 
     def add(self, node, istopnode=False):
         """Adds the names from the node to the cache."""
         nodename = node.__class__.__name__.lower()
         if istopnode:
             self.topnode = nodename
-        meth = getattr(self, "_add_" + nodename, None)
+        meth = getattr(self, f"_add_{nodename}", None)
         if meth is not None:
             meth(node)
 
@@ -135,10 +135,7 @@ class GlobalNames(object):
             return
         lineno = node.lineno
         for target in node.names:
-            if target.asname is None:
-                name = target.name
-            else:
-                name = target.asname
+            name = target.name if target.asname is None else target.asname
             self.entry(name, lineno)
 
     def _add_with(self, node):
@@ -182,7 +179,7 @@ def module_is_package(module, pkg, level):
 def module_from_package(module, pkg, level):
     """Returns whether or not a module is from the package."""
     if level == 0:
-        return module.startswith(pkg + ".")
+        return module.startswith(f"{pkg}.")
     elif level == 1:
         return True
     else:
@@ -239,7 +236,6 @@ def make_node(name, pkg, allowed, glbnames):
 
 def make_graph(pkg, exclude=None):
     """Create a graph (dict) of module dependencies."""
-    graph = {}
     pkgdir = pkg.replace(".", os.sep)
     allowed = set()
     files = os.listdir(pkgdir)
@@ -251,8 +247,7 @@ def make_graph(pkg, exclude=None):
     if exclude:
         allowed -= exclude
     glbnames = GlobalNames(pkg=pkg)
-    for base in allowed:
-        graph[base] = make_node(base, pkg, allowed, glbnames)
+    graph = {base: make_node(base, pkg, allowed, glbnames) for base in allowed}
     glbnames.warn_duplicates()
     return graph
 
@@ -262,9 +257,9 @@ def depsort(graph):
     remaining = set(graph.keys())
     seder = []
     solved = set()
-    while 0 < len(remaining):
+    while remaining:
         nodeps = {m for m in remaining if len(graph[m].pkgdeps - solved) == 0}
-        if len(nodeps) == 0:
+        if not nodeps:
             msg = (
                 "\nsolved order = {0}\nremaining = {1}\nCycle detected in "
                 "module graph!"
@@ -341,9 +336,8 @@ def format_import(names):
         if asname is None:
             parts.append(name)
         else:
-            parts.append(name + " as " + asname)
-    line = "import " + ", ".join(parts) + "\n"
-    return line
+            parts.append(f"{name} as {asname}")
+    return "import " + ", ".join(parts) + "\n"
 
 
 def format_lazy_import(names):
@@ -366,8 +360,8 @@ def format_from_import(names):
         if asname is None:
             parts.append(name)
         else:
-            parts.append(name + " as " + asname)
-    line = "from " + module
+            parts.append(f"{name} as {asname}")
+    line = f"from {module}"
     line += " import " + ", ".join(parts) + "\n"
     return line
 
@@ -397,9 +391,9 @@ def rewrite_imports(name, pkg, order, imps):
                 if imp not in imps:
                     imps.add(imp)
                     keep.append(imp)
-            if len(keep) == 0:
+            if not keep:
                 s = ", ".join(n.name for n in a.names)
-                s = "# amalgamated " + s + "\n"
+                s = f"# amalgamated {s}" + "\n"
             else:
                 s = format_lazy_import(keep)
             replacements.append((start, stop, s))
@@ -415,9 +409,7 @@ def rewrite_imports(name, pkg, order, imps):
                         ).format(pkg, n.name, name)
                         raise RuntimeError(msg)
             elif p == pkg and m in order:
-                replacements.append(
-                    (start, stop, "# amalgamated " + p + "." + m + "\n")
-                )
+                replacements.append((start, stop, f"# amalgamated {p}.{m}" + "\n"))
             elif a.module == "__future__":
                 replacements.append(
                     (start, stop, "# amalgamated __future__ directive\n")
@@ -431,9 +423,9 @@ def rewrite_imports(name, pkg, order, imps):
                         keep.append(imp)
                 if len(keep) == len(a.names):
                     continue  # all new imports
-                elif len(keep) == 0:
+                elif not keep:
                     s = ", ".join(n.name for n in a.names)
-                    s = "# amalgamated from " + a.module + " import " + s + "\n"
+                    s = f"# amalgamated from {a.module} import {s}" + "\n"
                 else:
                     s = format_from_import(keep)
                 replacements.append((start, stop, s))
@@ -441,7 +433,7 @@ def rewrite_imports(name, pkg, order, imps):
     lines = raw.splitlines(keepends=True)
     for start, stop, s in replacements[::-1]:
         lines[start] = s
-        for i in range(stop - start - 1):
+        for _ in range(stop - start - 1):
             del lines[start + 1]
     return "".join(lines)
 
@@ -550,15 +542,15 @@ def main(args=None):
         if pkg.startswith("--debug="):
             debug = pkg[8:]
             continue
-        print("Amalgamating " + pkg)
+        print(f"Amalgamating {pkg}")
         exclude = read_exclude(pkg)
-        print("  excluding {}".format(pprint.pformat(exclude or None)))
+        print(f"  excluding {pprint.pformat(exclude or None)}")
         graph = make_graph(pkg, exclude=exclude)
         order = depsort(graph)
         src = amalgamate(order, graph, pkg)
         write_amalgam(src, pkg)
         rewrite_init(pkg, order, debug=debug)
-        print("  collapsed {} modules".format(len(order)))
+        print(f"  collapsed {len(order)} modules")
 
 
 if __name__ == "__main__":

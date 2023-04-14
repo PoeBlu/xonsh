@@ -316,7 +316,7 @@ def test_call_macro_raw_kwarg(arg):
     def f(x: str):
         return x
 
-    rtn = call_macro(f, ["*", "x=" + arg], {"x": 42, "y": 0}, None)
+    rtn = call_macro(f, ["*", f"x={arg}"], {"x": 42, "y": 0}, None)
     assert rtn == 42
 
 

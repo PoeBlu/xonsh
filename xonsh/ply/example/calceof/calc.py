@@ -36,8 +36,7 @@ def t_newline(t):
 
 
 def t_eof(t):
-    more = raw_input('... ')
-    if more:
+    if more := raw_input('... '):
         t.lexer.input(more + '\n')
         return t.lexer.token()
     else:
@@ -45,7 +44,7 @@ def t_eof(t):
 
 
 def t_error(t):
-    print("Illegal character '%s'" % t.value[0])
+    print(f"Illegal character '{t.value[0]}'")
     t.lexer.skip(1)
 
 # Build the lexer
@@ -109,13 +108,13 @@ def p_expression_name(p):
     try:
         p[0] = names[p[1]]
     except LookupError:
-        print("Undefined name '%s'" % p[1])
+        print(f"Undefined name '{p[1]}'")
         p[0] = 0
 
 
 def p_error(p):
     if p:
-        print("Syntax error at '%s'" % p.value)
+        print(f"Syntax error at '{p.value}'")
     else:
         print("Syntax error at EOF")
 

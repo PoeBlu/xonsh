@@ -35,8 +35,7 @@ def _windows_bash_command(env=None):
     """Determines the command for Bash on windows."""
     wbc = "bash"
     path = None if env is None else env.get("PATH", None)
-    bash_on_path = shutil.which("bash", path=path)
-    if bash_on_path:
+    if bash_on_path := shutil.which("bash", path=path):
         try:
             out = subprocess.check_output(
                 [bash_on_path, "--version"],
@@ -52,22 +51,20 @@ def _windows_bash_command(env=None):
 
         if bash_works:
             wbc = bash_on_path
-        else:
-            gfwp = _git_for_windows_path()
-            if gfwp:
-                bashcmd = os.path.join(gfwp, "bin\\bash.exe")
-                if os.path.isfile(bashcmd):
-                    wbc = bashcmd
+        elif gfwp := _git_for_windows_path():
+            bashcmd = os.path.join(gfwp, "bin\\bash.exe")
+            if os.path.isfile(bashcmd):
+                wbc = bashcmd
     return wbc
 
 
 def _bash_command(env=None):
     """Determines the command for Bash on the current plaform."""
-    if platform.system() == "Windows":
-        bc = _windows_bash_command(env=None)
-    else:
-        bc = "bash"
-    return bc
+    return (
+        _windows_bash_command(env=None)
+        if platform.system() == "Windows"
+        else "bash"
+    )
 
 
 def _bash_completion_paths_default():
@@ -76,26 +73,28 @@ def _bash_completion_paths_default():
     """
     platform_sys = platform.system()
     if platform_sys == "Linux" or sys.platform == "cygwin":
-        bcd = ("/usr/share/bash-completion/bash_completion",)
+        return ("/usr/share/bash-completion/bash_completion",)
     elif platform_sys == "Darwin":
-        bcd = (
-            "/usr/local/share/bash-completion/bash_completion",  # v2.x
+        return (
+            "/usr/local/share/bash-completion/bash_completion",
             "/usr/local/etc/bash_completion",
-        )  # v1.x
+        )
     elif platform_sys == "Windows":
-        gfwp = _git_for_windows_path()
-        if gfwp:
-            bcd = (
-                os.path.join(gfwp, "usr\\share\\bash-completion\\" "bash_completion"),
+        return (
+            (
                 os.path.join(
-                    gfwp, "mingw64\\share\\git\\completion\\" "git-completion.bash"
+                    gfwp, "usr\\share\\bash-completion\\" "bash_completion"
+                ),
+                os.path.join(
+                    gfwp,
+                    "mingw64\\share\\git\\completion\\" "git-completion.bash",
                 ),
             )
-        else:
-            bcd = ()
+            if (gfwp := _git_for_windows_path())
+            else ()
+        )
     else:
-        bcd = ()
-    return bcd
+        return ()
 
 
 _BASH_COMPLETIONS_PATHS_DEFAULT = None
@@ -107,20 +106,21 @@ def _get_bash_completions_source(paths=None):
         if _BASH_COMPLETIONS_PATHS_DEFAULT is None:
             _BASH_COMPLETIONS_PATHS_DEFAULT = _bash_completion_paths_default()
         paths = _BASH_COMPLETIONS_PATHS_DEFAULT
-    for path in map(pathlib.Path, paths):
-        if path.is_file():
-            return 'source "{}"'.format(path.as_posix())
-    return None
+    return next(
+        (
+            f'source "{path.as_posix()}"'
+            for path in map(pathlib.Path, paths)
+            if path.is_file()
+        ),
+        None,
+    )
 
 
 def _bash_get_sep():
     """ Returns the appropriate filepath separator char depending on OS and
     xonsh options set
     """
-    if platform.system() == "Windows":
-        return os.altsep
-    else:
-        return os.sep
+    return os.altsep if platform.system() == "Windows" else os.sep
 
 
 _BASH_PATTERN_NEED_QUOTES = None
@@ -133,7 +133,7 @@ def _bash_pattern_need_quotes():
     pattern = r'\s`\$\{\}\,\*\(\)"\'\?&'
     if platform.system() == "Windows":
         pattern += "%"
-    pattern = "[" + pattern + "]" + r"|\band\b|\bor\b"
+    pattern = f"[{pattern}]" + r"|\band\b|\bor\b"
     _BASH_PATTERN_NEED_QUOTES = re.compile(pattern)
     return _BASH_PATTERN_NEED_QUOTES
 
@@ -156,10 +156,7 @@ def _bash_expand_path(s):
 def _bash_quote_to_use(x):
     single = "'"
     double = '"'
-    if single in x and double not in x:
-        return double
-    else:
-        return single
+    return double if single in x and double not in x else single
 
 
 def _bash_quote_paths(paths, start, end):
@@ -189,7 +186,7 @@ def _bash_quote_paths(paths, start, end):
         else:
             _tail = ""
         if start != "" and "r" not in start and backslash in s:
-            start = "r%s" % start
+            start = f"r{start}"
         s = s + _tail
         if end != "":
             if "r" not in start.lower():
@@ -371,12 +368,7 @@ def bash_completions(
         )
         if not out:
             raise ValueError
-    except (
-        subprocess.CalledProcessError,
-        FileNotFoundError,
-        UnicodeDecodeError,
-        ValueError,
-    ):
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
         return set(), 0
 
     out = out.splitlines()
@@ -390,15 +382,17 @@ def bash_completions(
     commprefix = os.path.commonprefix(list(out))
     strip_len = 0
     strip_prefix = prefix.strip("\"'")
-    while strip_len < len(strip_prefix) and strip_len < len(commprefix):
-        if commprefix[strip_len] == strip_prefix[strip_len]:
-            break
+    while (
+        strip_len < len(strip_prefix)
+        and strip_len < len(commprefix)
+        and commprefix[strip_len] != strip_prefix[strip_len]
+    ):
         strip_len += 1
 
     if "-o noquote" not in complete_stmt:
         out, need_quotes = quote_paths(out, "", "")
     if "-o nospace" in complete_stmt:
-        out = set([x.rstrip() for x in out])
+        out = {x.rstrip() for x in out}
 
     return out, max(len(prefix) - strip_len, 0)
 
@@ -432,13 +426,11 @@ def bash_complete_line(line, return_line=True, **kwargs):
     endidx = len(line)
     # get completions
     out, lprefix = bash_completions(prefix, line, begidx, endidx, **kwargs)
-    # reformat output
-    if return_line:
-        preline = line[:-lprefix]
-        rtn = {preline + o for o in out}
-    else:
-        rtn = {o[lprefix:] for o in out}
-    return rtn
+    return (
+        {line[:-lprefix] + o for o in out}
+        if return_line
+        else {o[lprefix:] for o in out}
+    )
 
 
 def _bc_main(args=None):

@@ -81,9 +81,7 @@ info_fields = LazyObject(
 
 def object_info(**kw):
     """Make an object info dict with all fields present."""
-    infodict = dict(itertools.zip_longest(info_fields, [None]))
-    infodict.update(kw)
-    return infodict
+    return dict(itertools.zip_longest(info_fields, [None])) | kw
 
 
 def get_encoding(obj):
@@ -156,17 +154,16 @@ def getsource(obj, is_binary=False):
 
     if is_binary:
         return None
-    else:
-        # get source if obj was decorated with @decorator
-        if hasattr(obj, "__wrapped__"):
-            obj = obj.__wrapped__
-        try:
-            src = inspect.getsource(obj)
-        except TypeError:
-            if hasattr(obj, "__class__"):
-                src = inspect.getsource(obj.__class__)
-        encoding = get_encoding(obj)
-        return cast_unicode(src, encoding=encoding)
+    # get source if obj was decorated with @decorator
+    if hasattr(obj, "__wrapped__"):
+        obj = obj.__wrapped__
+    try:
+        src = inspect.getsource(obj)
+    except TypeError:
+        if hasattr(obj, "__class__"):
+            src = inspect.getsource(obj.__class__)
+    encoding = get_encoding(obj)
+    return cast_unicode(src, encoding=encoding)
 
 
 def is_simple_callable(obj):
@@ -174,8 +171,7 @@ def is_simple_callable(obj):
     return (
         inspect.isfunction(obj)
         or inspect.ismethod(obj)
-        or isinstance(obj, _builtin_func_type)
-        or isinstance(obj, _builtin_meth_type)
+        or isinstance(obj, (_builtin_func_type, _builtin_meth_type))
     )
 
 
@@ -363,9 +359,9 @@ class Inspector(object):
 
     def noinfo(self, msg, oname):
         """Generic message when no information is found."""
-        print("No %s found" % msg, end=" ")
+        print(f"No {msg} found", end=" ")
         if oname:
-            print("for %s" % oname)
+            print(f"for {oname}")
         else:
             print()
 
@@ -402,21 +398,15 @@ class Inspector(object):
 
         head = self.__head  # For convenience
         lines = []
-        ds = getdoc(obj)
-        if ds:
-            lines.append(head("Class docstring:"))
-            lines.append(indent(ds))
+        if ds := getdoc(obj):
+            lines.extend((head("Class docstring:"), indent(ds)))
         if inspect.isclass(obj) and hasattr(obj, "__init__"):
             init_ds = getdoc(obj.__init__)
             if init_ds is not None:
-                lines.append(head("Init docstring:"))
-                lines.append(indent(init_ds))
+                lines.extend((head("Init docstring:"), indent(init_ds)))
         elif hasattr(obj, "__call__"):
-            call_ds = getdoc(obj.__call__)
-            if call_ds:
-                lines.append(head("Call docstring:"))
-                lines.append(indent(call_ds))
-
+            if call_ds := getdoc(obj.__call__):
+                lines.extend((head("Call docstring:"), indent(call_ds)))
         if not lines:
             self.noinfo("documentation", oname)
         else:
@@ -519,11 +509,11 @@ class Inspector(object):
         title_width : int
           How many characters to pad titles to. Default to longest title.
         """
-        if HAS_PYGMENTS:
-            rtn = self._format_fields_tokens(fields, title_width=title_width)
-        else:
-            rtn = self._format_fields_str(fields, title_width=title_width)
-        return rtn
+        return (
+            self._format_fields_tokens(fields, title_width=title_width)
+            if HAS_PYGMENTS
+            else self._format_fields_str(fields, title_width=title_width)
+        )
 
     # The fields to be displayed by pinfo: (fancy_name, key_in_info_dict)
     pinfo_fields1 = [("Type", "type_name")]
@@ -620,15 +610,14 @@ class Inspector(object):
             ospace = info.namespace
         # Get docstring, special-casing aliases:
         if isalias:
-            if not callable(obj):
-                if len(obj) >= 2 and isinstance(obj[1], str):
-                    ds = "Alias to the system command:\n  {0}".format(obj[1])
-                else:  # pylint:disable=bare-except
-                    ds = "Alias: " + str(obj)
-            else:
-                ds = "Alias to " + str(obj)
+            if callable(obj):
+                ds = f"Alias to {str(obj)}"
                 if obj.__doc__:
                     ds += "\nDocstring:\n" + obj.__doc__
+            elif len(obj) >= 2 and isinstance(obj[1], str):
+                ds = "Alias to the system command:\n  {0}".format(obj[1])
+            else:  # pylint:disable=bare-except
+                ds = f"Alias: {str(obj)}"
         else:
             ds = getdoc(obj)
             if ds is None:
@@ -636,9 +625,6 @@ class Inspector(object):
 
         # store output in a dict, we initialize it here and fill it as we go
         out = dict(name=oname, found=True, isalias=isalias, ismagic=ismagic)
-
-        string_max = 200  # max size of strings to show (snipped if longer)
-        shalf = int((string_max - 5) / 2)
 
         if ismagic:
             obj_type_name = "Magic function"
@@ -656,11 +642,14 @@ class Inspector(object):
 
         # String form, but snip if too long in ? form (full in ??)
         if detail_level >= self.str_detail_level:
+            string_max = 200  # max size of strings to show (snipped if longer)
+            shalf = int((string_max - 5) / 2)
+
             try:
                 ostr = str(obj)
                 str_head = "string_form"
                 if not detail_level and len(ostr) > string_max:
-                    ostr = ostr[:shalf] + " <...> " + ostr[-shalf:]
+                    ostr = f"{ostr[:shalf]} <...> {ostr[-shalf:]}"
                     ostr = ("\n" + " " * len(str_head.expandtabs())).join(
                         q.strip() for q in ostr.split("\n")
                     )
@@ -735,17 +724,13 @@ class Inspector(object):
                 if init_ds == _object_init_docstring:
                     init_ds = None
 
-            if init_def or init_ds:
-                if init_def:
-                    out["init_definition"] = init_def
-                if init_ds:
-                    out["init_docstring"] = init_ds
+            if init_def:
+                out["init_definition"] = init_def
+            if init_ds:
+                out["init_docstring"] = init_ds
 
-        # and class docstring for instances:
         else:
-            # reconstruct the function definition and print it:
-            defln = self._getdef(obj, oname)
-            if defln:
+            if defln := self._getdef(obj, oname):
                 out["definition"] = defln
 
             # First, check whether the instance docstring is identical to the
@@ -778,8 +763,7 @@ class Inspector(object):
 
             # Call form docstring for callable instances
             if safe_hasattr(obj, "__call__") and not is_simple_callable(obj):
-                call_def = self._getdef(obj.__call__, oname)
-                if call_def:
+                if call_def := self._getdef(obj.__call__, oname):
                     call_def = call_def
                     # it may never be the case that call def and definition
                     # differ, but don't include the same signature twice

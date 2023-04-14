@@ -25,11 +25,9 @@ def complete_completer(prefix, line, start, end, ctx):
         if curix == 3:
             possible = {i for i, j in builtins.__xonsh__.ctx.items() if callable(j)}
         elif curix == 4:
-            possible = (
-                {"start", "end"}
-                | {">" + n for n in compnames}
-                | {"<" + n for n in compnames}
-            )
+            possible = ({"start", "end"} | {f">{n}" for n in compnames}) | {
+                f"<{n}" for n in compnames
+            }
         else:
             raise StopIteration
     return {i for i in possible if i.startswith(prefix)}

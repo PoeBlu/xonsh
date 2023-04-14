@@ -7,7 +7,7 @@ def test_dddi():
     assert isinstance(z["a"], ChainDB)
     assert isinstance(z["a"]["a"], ChainDB)
     assert isinstance(z["a"]["a"]["a"], int)
-    assert z["a"]["a"]["a"] + 1 == 2
+    assert z["a"]["a"]["a"] == 1
 
 
 def test_second_mapping():

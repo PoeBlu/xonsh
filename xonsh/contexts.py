@@ -28,7 +28,7 @@ class Block(object):
 
     def __enter__(self):
         if not hasattr(self, "macro_block"):
-            raise XonshError(self.__class__.__name__ + " must be entered as a macro!")
+            raise XonshError(f"{self.__class__.__name__} must be entered as a macro!")
         self.lines = self.macro_block.splitlines()
         self.glbs = self.macro_globals
         if self.macro_locals is not self.macro_globals:
@@ -81,13 +81,13 @@ class Functor(Block):
         # construct signature string
         sig = rtn = ""
         sig = ", ".join(self.args)
-        kwstr = ", ".join([k + "=None" for k, _ in self.kwargs])
-        if len(kwstr) > 0:
-            sig = kwstr if len(sig) == 0 else sig + ", " + kwstr
+        kwstr = ", ".join([f"{k}=None" for k, _ in self.kwargs])
+        if kwstr != "":
+            sig = f"{sig}, {kwstr}" if sig else kwstr
         # construct return string
         rtn = str(self.rtn)
-        if len(rtn) > 0:
-            rtn = "    return " + rtn + "\n"
+        if rtn != "":
+            rtn = f"    return {rtn}" + "\n"
         # construct function string
         fstr = "def {name}({sig}):\n{body}\n{rtn}"
         fstr = fstr.format(name=name, sig=sig, body=body, rtn=rtn)

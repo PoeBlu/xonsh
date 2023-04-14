@@ -73,7 +73,7 @@ def test_premain_custom_rc(shell, tmpdir, monkeypatch):
 
 def test_no_rc_with_script(shell, tmpdir):
     args = xonsh.main.premain(["tests/sample.xsh"])
-    assert not (args.mode == XonshMode.interactive)
+    assert args.mode != XonshMode.interactive
 
 
 def test_force_interactive_rc_with_script(shell, tmpdir):
@@ -100,7 +100,7 @@ def test_custom_rc_with_script(shell, tmpdir):
     f = tmpdir.join("wakkawakka")
     f.write("print('hi')")
     args = xonsh.main.premain(["--rc", f.strpath, "tests/sample.xsh"])
-    assert not (args.mode == XonshMode.interactive)
+    assert args.mode != XonshMode.interactive
 
 
 def test_premain_no_rc(shell, tmpdir):
@@ -185,7 +185,7 @@ def test_xonsh_failback_script_from_file(shell, monkeypatch, monkeypatch_stderr)
     monkeypatch.setattr(sys, "argv", ["xonsh", script])
     with pytest.raises(Exception):
         xonsh.main.main()
-    assert len(checker) == 0
+    assert not checker
 
 
 def test_xonsh_no_file_returncode(shell, monkeypatch, monkeypatch_stderr):

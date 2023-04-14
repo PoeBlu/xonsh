@@ -16,7 +16,7 @@ def find_xontrib(name):
     if name.startswith("."):
         spec = importlib.util.find_spec(name, package="xontrib")
     else:
-        spec = importlib.util.find_spec("." + name, package="xontrib")
+        spec = importlib.util.find_spec(f".{name}", package="xontrib")
     return spec or importlib.util.find_spec(name)
 
 
@@ -27,11 +27,11 @@ def xontrib_context(name):
         return None
     m = importlib.import_module(spec.name)
     pubnames = getattr(m, "__all__", None)
-    if pubnames is not None:
-        ctx = {k: getattr(m, k) for k in pubnames}
-    else:
-        ctx = {k: getattr(m, k) for k in dir(m) if not k.startswith("_")}
-    return ctx
+    return (
+        {k: getattr(m, k) for k in pubnames}
+        if pubnames is not None
+        else {k: getattr(m, k) for k in dir(m) if not k.startswith("_")}
+    )
 
 
 def prompt_xontrib_install(names):
@@ -39,10 +39,11 @@ def prompt_xontrib_install(names):
     md = xontrib_metadata()
     packages = []
     for name in names:
-        for xontrib in md["xontribs"]:
-            if xontrib["name"] == name:
-                packages.append(xontrib["package"])
-
+        packages.extend(
+            xontrib["package"]
+            for xontrib in md["xontribs"]
+            if xontrib["name"] == name
+        )
     print(
         "The following xontribs are enabled but not installed: \n"
         "   {xontribs}\n"
@@ -131,7 +132,7 @@ def _list(ns):
     names = None if len(ns.names) == 0 else set(ns.names)
     for md in meta["xontribs"]:
         name = md["name"]
-        if names is not None and md["name"] not in names:
+        if names is not None and name not in names:
             continue
         nname = max(nname, len(name))
         spec = find_xontrib(name)
@@ -156,10 +157,7 @@ def _list(ns):
                 s += "{GREEN}installed{NO_COLOR}      "
             else:
                 s += "{RED}not-installed{NO_COLOR}  "
-            if d["loaded"]:
-                s += "{GREEN}loaded{NO_COLOR}"
-            else:
-                s += "{RED}not-loaded{NO_COLOR}"
+            s += "{GREEN}loaded{NO_COLOR}" if d["loaded"] else "{RED}not-loaded{NO_COLOR}"
             s += "\n"
         print_color(s[:-1])
 

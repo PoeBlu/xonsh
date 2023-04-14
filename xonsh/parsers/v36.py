@@ -11,10 +11,7 @@ class Parser(ThreeFiveParser):
     def p_comp_for(self, p):
         """comp_for : FOR exprlist IN or_test comp_iter_opt"""
         targs, it, p5 = p[2], p[4], p[5]
-        if len(targs) == 1:
-            targ = targs[0]
-        else:
-            targ = ensure_has_elts(targs)
+        targ = targs[0] if len(targs) == 1 else ensure_has_elts(targs)
         store_ctx(targ)
         # only difference with base should be the is_async=0
         comp = ast.comprehension(target=targ, iter=it, ifs=[], is_async=0)

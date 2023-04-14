@@ -138,7 +138,7 @@ def test_format_prompt_with_various_prepost(
 
     live_fields.update({"env_prefix": pre, "env_postfix": post})
 
-    exp = pre + "env" + post
+    exp = f"{pre}env{post}"
     assert formatter("{env_name}", fields=live_fields) == exp
 
 
@@ -203,7 +203,7 @@ def test_repo(request):
     try:
         sp.call([vc, "init"])
     except FileNotFoundError:
-        pytest.skip("cannot find {} executable".format(vc))
+        pytest.skip(f"cannot find {vc} executable")
     # git needs at least one commit
     if vc == "git":
         with open("test-file", "w"):
@@ -214,9 +214,7 @@ def test_repo(request):
 
 
 def test_test_repo(test_repo):
-    dotdir = os.path.isdir(
-        os.path.join(test_repo["dir"], ".{}".format(test_repo["name"]))
-    )
+    dotdir = os.path.isdir(os.path.join(test_repo["dir"], f'.{test_repo["name"]}'))
     assert dotdir
     if test_repo["name"] == "git":
         assert os.path.isfile(os.path.join(test_repo["dir"], "test-file"))
@@ -237,7 +235,7 @@ def test_no_repo(xonsh_builtins):
 def test_vc_get_branch(test_repo, xonsh_builtins):
     xonsh_builtins.__xonsh__.env = Env(VC_BRANCH_TIMEOUT=2)
     # get corresponding function from vc module
-    fun = "get_{}_branch".format(test_repo["name"])
+    fun = f'get_{test_repo["name"]}_branch'
     obs = getattr(vc, fun)()
     if obs is not None:
         assert obs == VC_BRANCH[test_repo["name"]]

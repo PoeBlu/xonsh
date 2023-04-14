@@ -22,16 +22,17 @@ def _splitpath(path, sofar=[]):
 
 @lazyobject
 def _CHARACTER_MAP():
-    cmap = {chr(o): "_%s" % chr(o + 32) for o in range(65, 91)}
-    cmap.update({".": "_.", "_": "__"})
-    return cmap
+    return {chr(o): f"_{chr(o + 32)}" for o in range(65, 91)} | {
+        ".": "_.",
+        "_": "__",
+    }
 
 
 def _cache_renamer(path, code=False):
     if not code:
         path = os.path.realpath(path)
     o = ["".join(_CHARACTER_MAP.get(i, i) for i in w) for w in _splitpath(path)]
-    o[-1] = "{}.{}".format(o[-1], sys.implementation.cache_tag)
+    o[-1] = f"{o[-1]}.{sys.implementation.cache_tag}"
     return o
 
 
@@ -60,10 +61,7 @@ def run_compiled_code(code, glb, loc, mode):
     """
     if code is None:
         return
-    if mode in {"exec", "single"}:
-        func = exec
-    else:
-        func = eval
+    func = exec if mode in {"exec", "single"} else eval
     func(code, glb, loc)
 
 
@@ -81,8 +79,7 @@ def get_cache_filename(fname, code=True):
     cachedir = os.path.join(
         datadir, "xonsh_code_cache" if code else "xonsh_script_cache"
     )
-    cachefname = os.path.join(cachedir, *_cache_renamer(fname, code=code))
-    return cachefname
+    return os.path.join(cachedir, *_cache_renamer(fname, code=code))
 
 
 def update_cache(ccode, cache_file_name):
@@ -134,13 +131,15 @@ def script_cache_check(filename, cachefname):
     """
     ccode = None
     run_cached = False
-    if os.path.isfile(cachefname):
-        if os.stat(cachefname).st_mtime >= os.stat(filename).st_mtime:
-            with open(cachefname, "rb") as cfile:
-                if not _check_cache_versions(cfile):
-                    return False, None
-                ccode = marshal.load(cfile)
-                run_cached = True
+    if (
+        os.path.isfile(cachefname)
+        and os.stat(cachefname).st_mtime >= os.stat(filename).st_mtime
+    ):
+        with open(cachefname, "rb") as cfile:
+            if not _check_cache_versions(cfile):
+                return False, None
+            ccode = marshal.load(cfile)
+            run_cached = True
     return run_cached, ccode
 
 
@@ -166,10 +165,7 @@ def code_cache_name(code):
     """
     Return an appropriate spoofed filename for the given code.
     """
-    if isinstance(code, str):
-        _code = code.encode()
-    else:
-        _code = code
+    _code = code.encode() if isinstance(code, str) else code
     return hashlib.md5(_code).hexdigest()
 
 

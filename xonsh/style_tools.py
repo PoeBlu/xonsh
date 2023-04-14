@@ -102,18 +102,15 @@ def _partial_color_tokenize_main(template, styles):
                         styles[color]  # ensure color is available
                 color = next_color
                 value = ""
-        elif field is not None:
+        else:
             parts = [literal, bopen, field]
             if conv is not None and len(conv) > 0:
-                parts.append(expl)
-                parts.append(conv)
+                parts.extend((expl, conv))
             if spec is not None and len(spec) > 0:
                 parts.append(colon)
                 parts.append(spec)
             parts.append(bclose)
             value += "".join(parts)
-        else:
-            value += literal
     toks.append((color, value))
     return toks, color
 
@@ -157,7 +154,7 @@ def color_by_name(name, fg=None, bg=None):
     elif bg is None:
         tokname = fg
     else:
-        tokname = fg + "__" + bg
+        tokname = f"{fg}__{bg}"
     tok = getattr(Color, tokname)
     return tok, fg, bg
 

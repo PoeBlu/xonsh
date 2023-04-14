@@ -202,11 +202,7 @@ def hasglobstar(x):
     if isinstance(x, ast.Str):
         return "*" in x.s
     elif isinstance(x, list):
-        for e in x:
-            if hasglobstar(e):
-                return True
-        else:
-            return False
+        return any(hasglobstar(e) for e in x)
     else:
         return False
 
@@ -214,9 +210,9 @@ def hasglobstar(x):
 def _wrap_fstr_field(field, spec, conv):
     rtn = "{" + field
     if conv:
-        rtn += "!" + conv
+        rtn += f"!{conv}"
     if spec:
-        rtn += ":" + spec
+        rtn += f":{spec}"
     rtn += "}"
     return rtn
 
@@ -243,11 +239,11 @@ def eval_fstr_fields(fstring, prefix, filename=None):
             repl += _wrap_fstr_field(field, spec, conv)
         else:
             # the field has a special xonsh character, so we must eval it
-            eval_field = "__xonsh__.execer.eval(r" + q
+            eval_field = f"__xonsh__.execer.eval(r{q}"
             eval_field += field.lstrip().replace(q, r)
-            eval_field += q + ", glbs=globals(), locs=locals()"
+            eval_field += f"{q}, glbs=globals(), locs=locals()"
             if filename is not None:
-                eval_field += ", filename=" + q + filename + q
+                eval_field += f", filename={q}{filename}{q}"
             eval_field += ")"
             repl += _wrap_fstr_field(eval_field, spec, conv)
     repl += last * postlen
@@ -567,7 +563,7 @@ class BaseParser(object):
             p[0] = p[1]
 
         optfunc.__doc__ = ("{0}_opt : empty\n" "        | {0}").format(rulename)
-        optfunc.__name__ = "p_" + rulename + "_opt"
+        optfunc.__name__ = f"p_{rulename}_opt"
         setattr(self.__class__, optfunc.__name__, optfunc)
 
     def _list_rule(self, rulename):
@@ -581,7 +577,7 @@ class BaseParser(object):
         listfunc.__doc__ = ("{0}_list : {0}\n" "         | {0}_list {0}").format(
             rulename
         )
-        listfunc.__name__ = "p_" + rulename + "_list"
+        listfunc.__name__ = f"p_{rulename}_list"
         setattr(self.__class__, listfunc.__name__, listfunc)
 
     def _tok_rule(self, rulename):
@@ -600,7 +596,7 @@ class BaseParser(object):
                 raise TypeError("token for {0!r} not found.".format(rulename))
 
         tokfunc.__doc__ = "{0}_tok : {1}".format(rulename, rulename.upper())
-        tokfunc.__name__ = "p_" + rulename + "_tok"
+        tokfunc.__name__ = f"p_{rulename}_tok"
         setattr(self.__class__, tokfunc.__name__, tokfunc)
 
     def currloc(self, lineno, column=None):
@@ -620,10 +616,7 @@ class BaseParser(object):
 
     @property
     def lineno(self):
-        if self.lexer.last is None:
-            return 1
-        else:
-            return self.lexer.last.lineno
+        return 1 if self.lexer.last is None else self.lexer.last.lineno
 
     @property
     def col(self):
@@ -661,13 +654,13 @@ class BaseParser(object):
         if self.xonsh_code is None or loc is None:
             err_line_pointer = ""
         else:
-            col = loc.column + 1
             lines = self.lines
             if loc.lineno == 0:
                 loc.lineno = len(lines)
             i = loc.lineno - 1
             if 0 <= i < len(lines):
                 err_line = lines[i].rstrip()
+                col = loc.column + 1
                 err_line_pointer = "\n{}\n{: >{}}".format(err_line, "^", col)
             else:
                 err_line_pointer = ""
@@ -1024,7 +1017,7 @@ class BaseParser(object):
         p1 = p[1]
         kwargs = {"arg": p1.value, "annotation": p[2]}
         if PYTHON_VERSION_INFO >= (3, 5, 1):
-            kwargs.update({"lineno": p1.lineno, "col_offset": p1.lexpos})
+            kwargs |= {"lineno": p1.lineno, "col_offset": p1.lexpos}
         p[0] = ast.arg(**kwargs)
 
     def p_comma_tfpdef_empty(self, p):
@@ -1062,7 +1055,7 @@ class BaseParser(object):
             # x=42
             p0.args.append(p1)
             p0.defaults.append(p2)
-        elif p2 is None and p3 is not None:
+        elif p2 is None:
             # x, y and x, y=42
             p0.args.append(p1)
             self._set_args_def(p0, p3)
@@ -1078,7 +1071,7 @@ class BaseParser(object):
         elif vararg is not None and kwargs is None:
             # *args
             p0.vararg = vararg
-        elif vararg is not None and kwargs is not None:
+        elif vararg is not None:
             # *args, x and *args, x, y and *args, x=10 and *args, x=10, y
             # and *args, x, y=10, and *args, x=42, y=65
             p0.vararg = vararg
@@ -1209,7 +1202,7 @@ class BaseParser(object):
         p1 = p[1]
         kwargs = {"arg": p1.value, "annotation": None}
         if PYTHON_VERSION_INFO >= (3, 5, 1):
-            kwargs.update({"lineno": p1.lineno, "col_offset": p1.lexpos})
+            kwargs |= {"lineno": p1.lineno, "col_offset": p1.lexpos}
         p[0] = ast.arg(**kwargs)
 
     def p_comma_vfpdef_empty(self, p):
@@ -1234,10 +1227,7 @@ class BaseParser(object):
         """stmt_list : stmt
                      | stmt_list stmt
         """
-        if len(p) == 2:
-            p[0] = p[1]
-        else:
-            p[0] = p[1] + p[2]
+        p[0] = p[1] if len(p) == 2 else p[1] + p[2]
 
     def p_semi_opt(self, p):
         """semi_opt : SEMI
@@ -1342,10 +1332,9 @@ class BaseParser(object):
                 col_offset=p1[0].col_offset,
             )
         ]
-        p0 = ast.Assign(
+        return ast.Assign(
             targets=p1, value=rhs, lineno=p1[0].lineno, col_offset=p1[0].col_offset
         )
-        return p0
 
     def p_expr_stmt_star5(self, p):
         """expr_stmt : test_comma_list_opt star_expr comma_test_list equals_yield_expr_or_testlist"""
@@ -1560,7 +1549,7 @@ class BaseParser(object):
 
     def p_comma_import_as_name_tail(self, p):
         """comma_import_as_name : comma_opt RPAREN"""
-        p[0] = list()
+        p[0] = []
 
     def p_dotted_as_name(self, p):
         """dotted_as_name : dotted_name as_name_opt"""
@@ -1873,7 +1862,7 @@ class BaseParser(object):
         toks = set(self.tokens)
         toks.remove("DEDENT")
         ts = "\n       | ".join(sorted(toks))
-        doc = "nodedent : " + ts + "\n"
+        doc = f"nodedent : {ts}" + "\n"
         self.p_nodedent_base.__func__.__doc__ = doc
 
     def p_nodedent_base(self, p):
@@ -1919,7 +1908,7 @@ class BaseParser(object):
             "ATDOLLAR_LPAREN",
         }
         ts = "\n        | ".join(sorted(toks))
-        doc = "nonewline : " + ts + "\n"
+        doc = f"nonewline : {ts}" + "\n"
         self.p_nonewline_base.__func__.__doc__ = doc
 
     def p_nonewline_base(self, p):
@@ -2282,13 +2271,12 @@ class BaseParser(object):
         p[0] = p[1]
 
     def _list_or_elts_if_not_real_tuple(self, x):
-        if isinstance(x, ast.Tuple) and not (
-            hasattr(x, "_real_tuple") and x._real_tuple
-        ):
-            rtn = x.elts
-        else:
-            rtn = [x]
-        return rtn
+        return (
+            x.elts
+            if isinstance(x, ast.Tuple)
+            and not (hasattr(x, "_real_tuple") and x._real_tuple)
+            else [x]
+        )
 
     def apply_trailers(self, leader, trailers):
         """Helper function for atom expr."""
@@ -2387,10 +2375,7 @@ class BaseParser(object):
             )
         else:
             if isinstance(p2, ast.Tuple):
-                if hasattr(p2, "_real_tuple") and p2._real_tuple:
-                    elts = [p2]
-                else:
-                    elts = p2.elts
+                elts = [p2] if hasattr(p2, "_real_tuple") and p2._real_tuple else p2.elts
             else:
                 elts = [p2]
             p0 = ast.List(
@@ -2504,7 +2489,7 @@ class BaseParser(object):
             "ATDOLLAR_LPAREN",
         }
         ts = "\n       | ".join(sorted(toks))
-        doc = "nocloser : " + ts + "\n"
+        doc = f"nocloser : {ts}" + "\n"
         self.p_nocloser_base.__func__.__doc__ = doc
 
     def p_nocloser_base(self, p):
@@ -2620,8 +2605,7 @@ class BaseParser(object):
                 if len(begins) == 1:
                     break
                 else:
-                    msg = "empty macro arguments not allowed"
-                    self._parse_error(msg, self.currloc(*beg))
+                    self._parse_error("empty macro arguments not allowed", self.currloc(*beg))
             node = ast.Str(s=s, lineno=beg[0], col_offset=beg[1])
             elts.append(node)
         p0 = ast.Tuple(
@@ -2660,7 +2644,7 @@ class BaseParser(object):
             "ATDOLLAR_LPAREN",
         }
         ts = "\n            | ".join(sorted(toks))
-        doc = "nocomma_tok : " + ts + "\n"
+        doc = f"nocomma_tok : {ts}" + "\n"
         self.p_nocomma_tok.__func__.__doc__ = doc
 
     # The following grammar rules are no-ops because we don't need to glue the
@@ -2737,7 +2721,7 @@ class BaseParser(object):
         p1, p2 = p[1], p[2]
         if p2 is None:
             pass
-        elif isinstance(p1, ast.Slice) or any([isinstance(x, ast.Slice) for x in p2]):
+        elif isinstance(p1, ast.Slice) or any(isinstance(x, ast.Slice) for x in p2):
             p1 = ast.ExtSlice(dims=[p1] + p2)
         else:
             p1.value = ast.Tuple(
@@ -2941,10 +2925,7 @@ class BaseParser(object):
     def p_comp_for(self, p):
         """comp_for : FOR exprlist IN or_test comp_iter_opt"""
         targs, it, p5 = p[2], p[4], p[5]
-        if len(targs) == 1:
-            targ = targs[0]
-        else:
-            targ = ensure_has_elts(targs)
+        targ = targs[0] if len(targs) == 1 else ensure_has_elts(targs)
         store_ctx(targ)
         comp = ast.comprehension(target=targ, iter=it, ifs=[])
         comps = [comp]
@@ -3060,6 +3041,10 @@ class BaseParser(object):
                         cliargs, ast.Add(), currlist, lineno=lineno, col=col
                     )
                 currlist.elts.append(arg)
+            elif action == "ensure_list":
+                x = ensure_list_from_str_or_list(arg, lineno=lineno, col=col)
+                cliargs = binop(cliargs, ast.Add(), x, lineno=lineno, col=col)
+                currlist = None
             elif action == "extend":
                 cliargs = binop(cliargs, ast.Add(), arg, lineno=lineno, col=col)
                 currlist = None
@@ -3067,12 +3052,8 @@ class BaseParser(object):
                 sl = call_split_lines(arg, lineno=lineno, col=col)
                 cliargs = binop(cliargs, ast.Add(), sl, lineno=lineno, col=col)
                 currlist = None
-            elif action == "ensure_list":
-                x = ensure_list_from_str_or_list(arg, lineno=lineno, col=col)
-                cliargs = binop(cliargs, ast.Add(), x, lineno=lineno, col=col)
-                currlist = None
             else:
-                raise ValueError("action not understood: " + action)
+                raise ValueError(f"action not understood: {action}")
             del arg._cliarg_action
         return cliargs
 
@@ -3358,8 +3339,8 @@ class BaseParser(object):
             "DOLLAR_LBRACKET",
             "ATDOLLAR_LPAREN",
         }
-        ts = "\n                 | ".join(sorted([t.lower() + "_tok" for t in toks]))
-        doc = "subproc_arg_part : " + ts + "\n"
+        ts = "\n                 | ".join(sorted([f"{t.lower()}_tok" for t in toks]))
+        doc = f"subproc_arg_part : {ts}" + "\n"
         self.p_subproc_arg_part.__func__.__doc__ = doc
 
     def p_subproc_arg_part(self, p):

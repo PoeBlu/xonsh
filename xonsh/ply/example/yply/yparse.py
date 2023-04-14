@@ -49,7 +49,7 @@ def p_definition_literal(p):
 
 def p_definition_start(p):
     '''definition : START ID'''
-    print("start = '%s'" % p[2])
+    print(f"start = '{p[2]}'")
 
 
 def p_definition_token(p):
@@ -124,19 +124,14 @@ def p_definition_union(p):
 def p_rules(p):
     '''rules   : rules rule
                | rule'''
-    if len(p) == 2:
-        rule = p[1]
-    else:
-        rule = p[2]
-
+    rule = p[1] if len(p) == 2 else p[2]
     # Print out a Python equivalent of this rule
 
     embedded = []      # Embedded actions (a mess)
     embed_count = 0
 
     rulename = rule[0]
-    rulecount = 1
-    for r in rule[1]:
+    for rulecount, r in enumerate(rule[1], start=1):
         # r contains one of the rule possibilities
         print("def p_%s_%d(p):" % (rulename, rulecount))
         prod = []
@@ -155,15 +150,13 @@ def p_rules(p):
                     embed_count += 1
             else:
                 prod.append(item)
-        print("    '''%s : %s'''" % (rulename, " ".join(prod)))
+        print(f"""    '''{rulename} : {" ".join(prod)}'''""")
         # Emit code
         print_code(prodcode, 4)
         print()
-        rulecount += 1
-
     for e, code in embedded:
-        print("def p_%s(p):" % e)
-        print("    '''%s : '''" % e)
+        print(f"def p_{e}(p):")
+        print(f"    '''{e} : '''")
         print_code(code, 4)
         print()
 
@@ -241,4 +234,4 @@ def print_code(code, indent):
         return
     codelines = code.splitlines()
     for c in codelines:
-        print("%s# %s" % (" " * indent, c))
+        print(f'{" " * indent}# {c}')

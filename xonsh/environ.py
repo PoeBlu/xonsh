@@ -352,7 +352,7 @@ class LsColors(cabc.MutableMapping):
 
     def _repr_pretty_(self, p, cycle):
         name = "{0}.{1}".format(self.__class__.__module__, self.__class__.__name__)
-        with p.group(0, name + "(", ")"):
+        with p.group(0, f"{name}(", ")"):
             if cycle:
                 p.text("...")
             elif len(self):
@@ -422,7 +422,7 @@ class LsColors(cabc.MutableMapping):
                         esc, "default", reversed_style=reversed_default
                     )
                 except Exception as e:
-                    print("xonsh:warning:" + str(e), file=sys.stderr)
+                    print(f"xonsh:warning:{str(e)}", file=sys.stderr)
                     data[key] = ("NO_COLOR",)
         obj._d = data
         return obj
@@ -647,8 +647,7 @@ def xonsh_config_dir(env):
 def xonshconfig(env):
     """Ensures and returns the $XONSHCONFIG"""
     xcd = env.get("XONSH_CONFIG_DIR")
-    xc = os.path.join(xcd, "config.json")
-    return xc
+    return os.path.join(xcd, "config.json")
 
 
 @default_value
@@ -1418,13 +1417,12 @@ class Env(cabc.MutableMapping):
         self._ensurers = {k: Ensurer(*v) for k, v in DEFAULT_ENSURERS.items()}
         self._defaults = DEFAULT_VALUES
         self._docs = DEFAULT_DOCS
-        if len(args) == 0 and len(kwargs) == 0:
+        if not args and not kwargs:
             args = (os_environ,)
         for key, val in dict(*args, **kwargs).items():
             self[key] = val
         if ON_WINDOWS:
-            path_key = next((k for k in self._d if k.upper() == "PATH"), None)
-            if path_key:
+            if path_key := next((k for k in self._d if k.upper() == "PATH"), None):
                 self["PATH"] = self._d.pop(path_key)
         if "PATH" not in self._d:
             # this is here so the PATH is accessible to subprocs and so that
@@ -1591,9 +1589,7 @@ class Env(cabc.MutableMapping):
         if self.get("UPDATE_OS_ENVIRON"):
             if self._orig_env is None:
                 self.replace_env()
-            elif ensurer.detype is None:
-                pass
-            else:
+            elif ensurer.detype is not None:
                 deval = ensurer.detype(val)
                 if deval is not None:
                     os_environ[key] = deval
@@ -1640,7 +1636,7 @@ class Env(cabc.MutableMapping):
 
     def _repr_pretty_(self, p, cycle):
         name = "{0}.{1}".format(self.__class__.__module__, self.__class__.__name__)
-        with p.group(0, name + "(", ")"):
+        with p.group(0, f"{name}(", ")"):
             if cycle:
                 p.text("...")
             elif len(self):
@@ -1742,16 +1738,14 @@ def default_env(env=None):
     """Constructs a default xonsh environment."""
     # in order of increasing precedence
     ctx = dict(BASE_ENV)
-    ctx.update(os_environ)
+    ctx |= os_environ
     ctx["PWD"] = _get_cwd() or ""
     # These can cause problems for programs (#2543)
     ctx.pop("LINES", None)
     ctx.pop("COLUMNS", None)
     # other shells' PROMPT definitions generally don't work in XONSH:
-    try:
+    with contextlib.suppress(KeyError):
         del ctx["PROMPT"]
-    except KeyError:
-        pass
     # finalize env
     if env is not None:
         ctx.update(env)
@@ -1764,6 +1758,6 @@ def make_args_env(args=None):
     """
     if args is None:
         args = sys.argv
-    env = {"ARG" + str(i): arg for i, arg in enumerate(args)}
+    env = {f"ARG{str(i)}": arg for i, arg in enumerate(args)}
     env["ARGS"] = list(args)  # make a copy so we don't interfere with original variable
     return env

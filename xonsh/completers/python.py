@@ -134,9 +134,9 @@ def complete_python(prefix, line, start, end, ctx):
     rtn = _complete_python(prefix, line, start, end, ctx)
     if not rtn:
         prefix = (
-            re.split(r"\(|=|{|\[|,", prefix)[-1]
-            if not prefix.startswith(",")
-            else prefix
+            prefix
+            if prefix.startswith(",")
+            else re.split(r"\(|=|{|\[|,", prefix)[-1]
         )
         start = line.find(prefix)
         rtn = _complete_python(prefix, line, start, end, ctx)
@@ -182,7 +182,7 @@ def complete_python_mode(prefix, line, start, end, ctx):
     python_matches = complete_python(prefix[2:], line, start - 2, end - 2, ctx)
     if isinstance(python_matches, cabc.Sequence):
         python_matches = python_matches[0]
-    return set(prefix_start + i for i in python_matches)
+    return {prefix_start + i for i in python_matches}
 
 
 def _turn_off_warning(func):
@@ -243,9 +243,9 @@ def attr_complete(prefix, ctx, filter_func):
         a = getattr(val, opt)
         if builtins.__xonsh__.env["COMPLETIONS_BRACKETS"]:
             if callable(a):
-                rpl = opt + "("
+                rpl = f"{opt}("
             elif isinstance(a, (cabc.Sequence, cabc.Mapping)):
-                rpl = opt + "["
+                rpl = f"{opt}["
             else:
                 rpl = opt
         else:
@@ -273,8 +273,7 @@ def python_signature_complete(prefix, line, end, ctx, filter_func):
         sig = inspect.signature(val)
     except ValueError:
         return set()
-    args = {p + "=" for p in sig.parameters if filter_func(p, prefix)}
-    return args
+    return {f"{p}=" for p in sig.parameters if filter_func(p, prefix)}
 
 
 def complete_import(prefix, line, start, end, ctx):
@@ -286,7 +285,7 @@ def complete_import(prefix, line, start, end, ctx):
     ntoks = len(ltoks)
     if ntoks == 2 and ltoks[0] == "from":
         # completing module to import
-        return {"{} ".format(i) for i in complete_module(prefix)}
+        return {f"{i} " for i in complete_module(prefix)}
     if ntoks > 1 and ltoks[0] == "import" and start == len("import "):
         # completing module to import
         return complete_module(prefix)
@@ -296,8 +295,7 @@ def complete_import(prefix, line, start, end, ctx):
             mod = importlib.import_module(ltoks[1])
         except ImportError:
             return set()
-        out = {i[0] for i in inspect.getmembers(mod) if i[0].startswith(prefix)}
-        return out
+        return {i[0] for i in inspect.getmembers(mod) if i[0].startswith(prefix)}
     return set()
 
 

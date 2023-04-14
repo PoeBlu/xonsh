@@ -133,10 +133,7 @@ class Execer(object):
             locs = frame.f_locals if locs is None else locs
         ctx = set(dir(builtins)) | set(glbs.keys()) | set(locs.keys())
         tree = self.parse(input, ctx, mode=mode, filename=filename, transform=transform)
-        if tree is None:
-            return None  # handles comment only input
-        code = compile(tree, filename, mode)
-        return code
+        return None if tree is None else compile(tree, filename, mode)
 
     def eval(
         self, input, glbs=None, locs=None, stacklevel=2, filename=None, transform=True
@@ -156,9 +153,7 @@ class Execer(object):
                 filename=filename,
                 transform=transform,
             )
-        if code is None:
-            return None  # handles comment only input
-        return eval(code, glbs, locs)
+        return None if code is None else eval(code, glbs, locs)
 
     def exec(
         self,
@@ -185,9 +180,7 @@ class Execer(object):
                 filename=filename,
                 transform=transform,
             )
-        if code is None:
-            return None  # handles comment only input
-        return exec(code, glbs, locs)
+        return None if code is None else exec(code, glbs, locs)
 
     def _print_debug_wrapping(
         self, line, sbpline, last_error_line, last_error_col, maxcol=None
@@ -195,7 +188,7 @@ class Execer(object):
         """print some debugging info if asked for."""
         if self.debug_level > 1:
             msg = "{0}:{1}:{2}{3} - {4}\n" "{0}:{1}:{2}{3} + {5}"
-            mstr = "" if maxcol is None else ":" + str(maxcol)
+            mstr = "" if maxcol is None else f":{str(maxcol)}"
             msg = msg.format(
                 self.filename, last_error_line, last_error_col, mstr, line, sbpline
             )
@@ -275,13 +268,13 @@ class Execer(object):
                     if greedy
                     else find_next_break(line, mincol=last_error_col, lexer=lexer)
                 )
-                if not greedy and maxcol in (e.loc.column + 1, e.loc.column):
-                    # go greedy the first time if the syntax error was because
-                    # we hit an end token out of place. This usually indicates
-                    # a subshell or maybe a macro.
-                    if not balanced_parens(line, maxcol=maxcol):
-                        greedy = True
-                        maxcol = None
+                if (
+                    not greedy
+                    and maxcol in (e.loc.column + 1, e.loc.column)
+                    and not balanced_parens(line, maxcol=maxcol)
+                ):
+                    greedy = True
+                    maxcol = None
                 sbpline = subproc_toks(
                     line, returnline=True, greedy=greedy, maxcol=maxcol, lexer=lexer
                 )
@@ -302,14 +295,10 @@ class Execer(object):
                 elif sbpline[last_error_col:].startswith(
                     "![!["
                 ) or sbpline.lstrip().startswith("![!["):
-                    # if we have already wrapped this in subproc tokens
-                    # and it still doesn't work, adding more won't help
-                    # anything
-                    if not greedy:
-                        greedy = True
-                        continue
-                    else:
+                    if greedy:
                         raise original_error
+                    greedy = True
+                    continue
                 # replace the line
                 self._print_debug_wrapping(
                     line, sbpline, last_error_line, last_error_col, maxcol=maxcol

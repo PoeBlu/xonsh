@@ -16,7 +16,4 @@ def sysctlbyname(name, return_str=True):
     buf = create_string_buffer(size.value)
     # Re-run, but provide the buffer
     LIBC.sysctlbyname(name, buf, byref(size), None, 0)
-    if return_str:
-        return buf.value
-    else:
-        return buf.raw
+    return buf.value if return_str else buf.raw
